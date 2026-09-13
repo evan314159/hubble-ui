@@ -131,6 +131,14 @@ export class Controls extends EventEmitter<Handlers> {
     this.emit(Event.ShowPrometheusAppChanged, Diff.new(!isActive).step(isActive));
   }
 
+  // NOTE: Purely a client-side rendering choice (never sent to the backend),
+  // NOTE: so no FiltersChanged/router wiring -- the placement/arrow
+  // NOTE: strategies read the flag directly and MobX handles reactivity.
+  public toggleGroupWorldCards() {
+    const isActive = this.store.controls.toggleGroupWorldCards();
+    storage.saveGroupWorldCards(isActive);
+  }
+
   public setHTTPStatus(st: string | null) {
     const prev = this.store.controls.setHttpStatus(st);
     if (prev === st) return;

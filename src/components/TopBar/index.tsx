@@ -36,6 +36,8 @@ export interface Props {
   onShowRemoteNodeToggle?: () => void;
   showPrometheusApp: boolean;
   onShowPrometheusAppToggle: () => void;
+  groupWorldCards: boolean;
+  onGroupWorldCardsToggle?: () => void;
   filterMatchMode: FilterMatchMode;
   onFilterMatchModeChange?: (mode: FilterMatchMode) => void;
 }
@@ -63,6 +65,8 @@ export const TopBar = observer(function TopBar(props: Props) {
         onShowRemoteNodeToggle={props.onShowRemoteNodeToggle}
         showPrometheusApp={props.showPrometheusApp}
         onShowPrometheusAppToggle={props.onShowPrometheusAppToggle}
+        groupWorldCards={props.groupWorldCards}
+        onGroupWorldCardsToggle={props.onGroupWorldCardsToggle}
       />
     </>
   );
