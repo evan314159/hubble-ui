@@ -21,6 +21,7 @@ export class ControlStore {
   public showKubeDns = false;
   public showRemoteNode = false;
   public showPrometheusApp = false;
+  public groupWorldCards = false;
 
   constructor() {
     makeAutoObservable(this, void 0, {
@@ -137,6 +138,16 @@ export class ControlStore {
 
   toggleShowPrometheusApp(): boolean {
     return this.setShowPrometheusApp(!this.showPrometheusApp);
+  }
+
+  setGroupWorldCards(val: boolean): boolean {
+    this.groupWorldCards = val;
+
+    return val;
+  }
+
+  toggleGroupWorldCards(): boolean {
+    return this.setGroupWorldCards(!this.groupWorldCards);
   }
 
   setFilters(f: Filters) {

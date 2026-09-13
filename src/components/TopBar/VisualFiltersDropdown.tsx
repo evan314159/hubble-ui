@@ -19,12 +19,18 @@ interface Props {
   onShowRemoteNodeToggle?: () => void;
   showPrometheusApp: boolean;
   onShowPrometheusAppToggle?: () => void;
+  groupWorldCards: boolean;
+  onGroupWorldCardsToggle?: () => void;
 }
 
 export const VisualFiltersDropdown = observer(function VisualFiltersDropdown(props: Props) {
   const popover = usePopover();
   const enabled =
-    !props.showHost || !props.showKubeDns || !props.showRemoteNode || !props.showPrometheusApp;
+    !props.showHost ||
+    !props.showKubeDns ||
+    !props.showRemoteNode ||
+    !props.showPrometheusApp ||
+    props.groupWorldCards;
 
   const content = (
     <Menu className={css.visualFiltersMenu}>
@@ -68,6 +74,17 @@ export const VisualFiltersDropdown = observer(function VisualFiltersDropdown(pro
             checked={!props.showPrometheusApp}
             label="Hide prometheus app"
             onClick={props.onShowPrometheusAppToggle}
+            className={css.checkbox}
+          />
+        }
+      />
+      <MenuItem
+        shouldDismissPopover={false}
+        text={
+          <Checkbox
+            checked={props.groupWorldCards}
+            label="Group world cards"
+            onClick={props.onGroupWorldCardsToggle}
             className={css.checkbox}
           />
         }

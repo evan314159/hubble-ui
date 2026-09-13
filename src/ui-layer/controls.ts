@@ -76,6 +76,10 @@ export class Controls {
     this.dataLayer.controls.toggleShowPrometheusApp();
   }
 
+  public toggleGroupWorldCards() {
+    this.dataLayer.controls.toggleGroupWorldCards();
+  }
+
   public setFlowFilters(ff: FilterEntry[] | null) {
     this.dataLayer.controls.setFlowFilters(ff);
     this.router.commit();
