@@ -129,9 +129,9 @@ export const ServiceMapApp = observer(function ServiceMapApp() {
         active={ui.serviceMap.isCardActive(props.card)}
         isUnsizedMode={props.isUnsizedMode}
         collector={ui.serviceMap.collector}
-        currentNamespace={store.namespaces.current?.namespace}
         className={props.className}
         l7endpoints={l7endpoints.forReceiver(props.card.id)}
+        flows={props.card.isWorld ? store.currentFrame.interactions.flows : undefined}
         maxHttpEndpointsVisible={5}
         isClusterMeshed={store.currentFrame.services.isClusterMeshed}
         onHeaderClick={onCardSelect}
@@ -166,6 +166,8 @@ export const ServiceMapApp = observer(function ServiceMapApp() {
       onShowRemoteNodeToggle={() => ui.controls.toggleShowRemoteNode()}
       showPrometheusApp={store.controls.showPrometheusApp}
       onShowPrometheusAppToggle={() => ui.controls.toggleShowPrometheusApp()}
+      groupWorldCards={store.controls.groupWorldCards}
+      onGroupWorldCardsToggle={() => ui.controls.toggleGroupWorldCards()}
       filterMatchMode={ui.controls.filterMatchMode}
       onFilterMatchModeChange={mode => ui.controls.setFilterMatchMode(mode)}
     />
@@ -188,19 +190,17 @@ export const ServiceMapApp = observer(function ServiceMapApp() {
       {RenderedTopBar}
 
       <div className={css.map}>
-        {store.currentFrame.services.cardsList.length > 0 ? (
+        {ui.serviceMap.placement.cardsList.length > 0 ? (
           <Map
-            namespace={store.namespaces.current?.namespace}
-            namespaceBBox={ui.serviceMap.placement.namespaceBBox}
+            namespaceBBoxes={ui.serviceMap.placement.namespaceBBoxes}
             placement={ui.serviceMap.placement}
             arrows={ui.serviceMap.arrows}
             arrowsRenderer={ServiceMapArrowsRenderer}
-            cards={store.currentFrame.services.cardsList}
+            cards={ui.serviceMap.placement.cardsList}
             cardRenderer={cardRenderer}
             visibleHeight={mapVisibleHeight ?? 0}
             wasDragged={mapWasDragged}
             onMapDrag={onMapDrag}
-            onCardMutated={() => ui.serviceMap.cardsMutationsObserved()}
           />
         ) : (
           <LoadingOverlay

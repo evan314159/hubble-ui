@@ -14,4 +14,5 @@ export type StorageParameters = {
   isKubeDNSShown: boolean;
   isAggregationOff: boolean | null;
   dataMode: DataMode | null;
+  groupWorldCards: boolean;
 };

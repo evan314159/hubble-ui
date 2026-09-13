@@ -276,6 +276,36 @@ export class ServiceCard extends AbstractCard {
     return this.labelsProps.isWorld && this.worldLabel === ReservedLabel.WorldIPv6;
   }
 
+  // NOTE: A private, UI-only label (never sent by or recognized by the
+  // NOTE: backend), one per folded-in card, that a "Group world cards" merge
+  // NOTE: (see world-merge.ts) stashes on the surviving combined card -- a
+  // NOTE: cluster can have more than just one world-ipv4 and one world-ipv6
+  // NOTE: identity (e.g. a CIDR pinned to its own identity by a visibility
+  // NOTE: policy also carries the reserved:world-ipv4 label), so every other
+  // NOTE: real identity that got folded in is recorded here, letting a flow
+  // NOTE: to/from any of them be recognized as belonging to this one combined
+  // NOTE: card.
+  public static readonly MERGED_WORLD_IDENTITY_LABEL = 'hubble-ui.io/merged-world-identity';
+
+  public get mergedWorldIdentities(): number[] {
+    return this.labels
+      .filter(l => l.key === ServiceCard.MERGED_WORLD_IDENTITY_LABEL)
+      .map(l => Number(l.value));
+  }
+
+  // NOTE: A private, UI-only label every world-split per-namespace card (see
+  // NOTE: world-split.ts) carries to say which side of the connection it
+  // NOTE: represents -- null only for a real, un-split world card, which
+  // NOTE: shows both directions at once (see topWorldDestinations).
+  public static readonly WORLD_CARD_DIRECTION_LABEL = 'hubble-ui.io/world-card-direction';
+
+  public get worldCardDirection(): 'egress' | 'ingress' | null {
+    const kv = this.labels.find(l => l.key === ServiceCard.WORLD_CARD_DIRECTION_LABEL);
+    if (kv == null) return null;
+
+    return kv.value === 'ingress' ? 'ingress' : 'egress';
+  }
+
   public get isHost(): boolean {
     return this.labelsProps.isHost;
   }

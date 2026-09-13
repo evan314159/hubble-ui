@@ -93,6 +93,7 @@ export class DataLayer extends EventEmitter<Handlers> {
       isKubeDNSShown: storage.getShowKubeDns(),
       isAggregationOff: storage.getIsAggregationOff(),
       dataMode: storage.getDataMode(),
+      groupWorldCards: storage.getGroupWorldCards(),
     };
   }
 
