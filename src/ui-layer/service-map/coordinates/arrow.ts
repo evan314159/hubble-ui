@@ -1,6 +1,6 @@
 import { action, actionBound, computed, observable } from 'mobx';
 
-import { AuthType, LinkThroughput, Verdict } from '~/domain/hubble';
+import { AuthType, IPProtocol, LinkThroughput, Verdict } from '~/domain/hubble';
 import { Vec2, XY, XYWH, rounding, utils as gutils } from '~/domain/geometry';
 
 import { sizes } from '~/ui';
@@ -8,74 +8,9 @@ import { Arrow } from '~/ui/layout/abstract/arrows';
 
 import { CardOffsets } from './helpers/card-offsets';
 
-export class AccessPointArrow extends Arrow {
-  public connectorId: string | null = null;
-  public accessPointId: string | null = null;
-
-  public verdicts: Set<Verdict> = new Set();
-  public authTypes: Set<AuthType> = new Set();
-  public isEncrypted = false;
-
-  public static new(): AccessPointArrow {
-    return new AccessPointArrow();
-  }
-
-  constructor() {
-    super();
-  }
-
-  @action
-  public fromConnector(connectorId: string): this {
-    this.connectorId = connectorId;
-    return this;
-  }
-
-  @action
-  public toAccessPoint(accessPointId: string): this {
-    this.accessPointId = accessPointId;
-    return this;
-  }
-
-  @action
-  public addVerdicts(verdicts: Set<Verdict>): this {
-    verdicts.forEach(v => {
-      this.verdicts.add(v);
-    });
-
-    return this;
-  }
-
-  @action
-  public setEncryption(encryption: boolean): this {
-    if (this.isEncrypted) return this;
-
-    this.isEncrypted = encryption;
-    return this;
-  }
-
-  @action
-  public addAuthTypes(authTypes: Set<AuthType>): this {
-    authTypes.forEach(at => {
-      this.authTypes.add(at);
-    });
-
-    return this;
-  }
-
-  @computed
-  public get id(): string {
-    return `${this.connectorId ?? ''} -> ${this.accessPointId ?? ''}`;
-  }
-
-  @computed
-  public get hasAbnormalVerdict(): boolean {
-    return this.verdicts.has(Verdict.Dropped) || this.verdicts.has(Verdict.Error);
-  }
-
-  @computed
-  public get hasAuth(): boolean {
-    return this.authTypes.has(AuthType.Spire);
-  }
+export interface ArrowPort {
+  port: number;
+  protocol: IPProtocol;
 }
 
 export class ServiceMapArrow extends Arrow {
@@ -93,11 +28,26 @@ export class ServiceMapArrow extends Arrow {
   @observable
   private accessor _linkThroughputs: LinkThroughput[] = [];
 
+  // NOTE: Aggregated across every access point this sender talks to this
+  // NOTE: receiver on -- see the "one line + label" decision in arrows.ts:
+  // NOTE: this arrow no longer routes a separate line into each port, so
+  // NOTE: verdicts/ports/auth need to live on the trunk itself instead of a
+  // NOTE: per-port sub-arrow.
   @observable
-  public accessor accessPointArrows: Map<string, AccessPointArrow> = new Map();
+  public accessor verdicts: Set<Verdict> = new Set();
 
-  // NOTE: An offset in pixels from shifted connector coords
-  public static readonly flowsIndicatorOffset = 20;
+  @observable
+  public accessor authTypes: Set<AuthType> = new Set();
+
+  @observable
+  public accessor isEncrypted = false;
+
+  @observable
+  private accessor _ports: Map<string, ArrowPort> = new Map();
+
+  // NOTE: Past sizes.arrowHandleWidth so the label doesn't sit on top of (and
+  // NOTE: hide) the endpoint arrowhead near the terminating node.
+  public static readonly flowsIndicatorOffset = sizes.arrowHandleWidth + 20;
 
   public static new(): ServiceMapArrow {
     return new ServiceMapArrow();
@@ -122,17 +72,48 @@ export class ServiceMapArrow extends Arrow {
   }
 
   @action
-  public addAccessPointArrow(connectorId: string, apId: string): AccessPointArrow {
-    const apArrow = AccessPointArrow.new().fromConnector(connectorId).toAccessPoint(apId);
-
-    this.accessPointArrows.set(apArrow.id, apArrow);
-    return apArrow;
-  }
-
-  @action
   public addLinkThroughput(lt: LinkThroughput): this {
     this._linkThroughputs.push(lt);
     return this;
+  }
+
+  @action
+  public addVerdicts(verdicts: Set<Verdict>): this {
+    verdicts.forEach(v => this.verdicts.add(v));
+    return this;
+  }
+
+  @action
+  public addAuthTypes(authTypes: Set<AuthType>): this {
+    authTypes.forEach(at => this.authTypes.add(at));
+    return this;
+  }
+
+  @action
+  public setEncryption(encryption: boolean): this {
+    this.isEncrypted = this.isEncrypted || encryption;
+    return this;
+  }
+
+  @action
+  public addPort(port: number, protocol: IPProtocol): this {
+    this._ports.set(`${port}/${protocol}`, { port, protocol });
+    return this;
+  }
+
+  @computed
+  public get ports(): ArrowPort[] {
+    return Array.from(this._ports.values());
+  }
+
+  @computed
+  public get hasAbnormalVerdict(): boolean {
+    return this.verdicts.has(Verdict.Dropped) || this.verdicts.has(Verdict.Error);
+  }
+
+  @computed
+  public get hasAuth(): boolean {
+    return this.authTypes.has(AuthType.Spire);
   }
 
   @action
@@ -211,24 +192,85 @@ export class ServiceMapArrow extends Arrow {
     // NOTE: Just put those shifted points + around points from first walk
     // NOTE: in the middle of the start and end.
     this._points.splice(1, 0, shiftedStart, ...points1, ...points2, shiftedEnd);
-    this.removeSharpAngleAtConnector(this.points);
+    this._points = this.removeSharpAngleAtConnector(this._points);
 
     return this;
   }
 
+  // NOTE: Alternative to buildPointsAroundSenderAndReceiver() that uses an
+  // NOTE: externally-computed route (elkjs's orthogonal edge routing) for the
+  // NOTE: trunk instead of the manual box-avoidance logic above. This is the
+  // NOTE: route's own start and end, not a fixed point on the card shared by
+  // NOTE: every edge that touches it -- ELK already picks a sensible,
+  // NOTE: per-edge boundary position for each of a node's many edges, and
+  // NOTE: overriding that with one shared point is what produced a fan of
+  // NOTE: diagonal lines into busy nodes. The line exits/enters the node
+  // NOTE: directly, wherever ELK put it.
+  @action
+  public useExternalRoute(route: XY[]): this {
+    if (route.length === 0) return this;
+
+    this._points = this.removeSharpAngleAtConnector([...route]);
+
+    return this;
+  }
+
+  // NOTE: Retargets this route's final approach to a shared x so multiple
+  // NOTE: senders converge on one entry point instead of each landing at its
+  // NOTE: own ELK-picked spot along the receiver's edge.
+  @action
+  public snapEntryX(x: number): this {
+    const pts = this._points;
+    const n = pts.length;
+    if (n < 2) return this;
+
+    const last = pts[n - 1];
+    const prev = pts[n - 2];
+    const prevIsHorizontalBend = n >= 3 && Math.abs(prev.y - pts[n - 3].y) < Number.EPSILON;
+
+    if (prevIsHorizontalBend) {
+      pts[n - 2] = { x, y: prev.y };
+      pts[n - 1] = { x, y: last.y };
+    } else {
+      pts.splice(n - 1, 0, { x, y: prev.y });
+      pts[pts.length - 1] = { x, y: last.y };
+    }
+
+    this._points = this.dedupeConsecutivePoints(this._points);
+
+    return this;
+  }
+
+  // NOTE: Collapsing two routes onto a shared entry x can make an already-
+  // NOTE: degenerate bend (one whose height already matched the endpoint's)
+  // NOTE: fully coincide with it, leaving a zero-length final segment with no
+  // NOTE: direction to point an arrowhead along.
+  private dedupeConsecutivePoints(points: XY[]): XY[] {
+    return points.filter((p, i) => {
+      const prev = points[i - 1];
+      if (prev == null) return true;
+
+      return Math.abs(prev.x - p.x) > Number.EPSILON || Math.abs(prev.y - p.y) > Number.EPSILON;
+    });
+  }
+
+  // NOTE: Anchored at the line's true end point, not an earlier bend, so the
+  // NOTE: label sits a uniform distance from the node it terminates at.
+  // NOTE: offsetMultiplier lets a busy receiver (e.g. a world card with many
+  // NOTE: incoming arrows) stagger labels at varying distances so adjacent
+  // NOTE: ones don't render on top of each other -- see declutterFlowsIndicators.
   @actionBound
-  public computeFlowsInfoIndicatorPosition() {
-    const shiftedEnd = this._points.at(-2);
-    const beforeShiftedEnd = this._points.at(-3);
+  public computeFlowsInfoIndicatorPosition(offsetMultiplier = 1) {
+    const end = this._points.at(-1);
+    const beforeEnd = this._points.at(-2);
 
-    if (shiftedEnd == null || beforeShiftedEnd == null) return;
+    if (end == null || beforeEnd == null) return;
 
-    const indicatorCoords = Vec2.fromXY(beforeShiftedEnd).sub(shiftedEnd).normalize();
+    const direction = Vec2.fromXY(beforeEnd).sub(end).normalize();
+    if (direction.isZero()) return;
 
-    if (Number.isNaN(indicatorCoords.y)) debugger;
-
-    this._flowsInfoIndicatorCoords = Vec2.fromXY(shiftedEnd)
-      .addInPlace(indicatorCoords.mul(ServiceMapArrow.flowsIndicatorOffset))
+    this._flowsInfoIndicatorCoords = Vec2.fromXY(end)
+      .addInPlace(direction.mul(ServiceMapArrow.flowsIndicatorOffset * offsetMultiplier))
       .xy();
   }
 
@@ -254,6 +296,11 @@ export class ServiceMapArrow extends Arrow {
 
   @action
   private removeSharpAngleAtConnector(points: XY[]) {
+    // NOTE: useExternalRoute() no longer pads the route with separate fixed
+    // NOTE: start/end points first, so a route with no interior bends (just
+    // NOTE: its own start+end) can be as short as 2 points here.
+    if (points.length < 3) return points;
+
     // Check angle between last two segments of arrow to avoid sharp angle
     // on connector
     const [a, b, c] = points.slice(points.length - 3);

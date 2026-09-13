@@ -38,25 +38,12 @@ $heading-max-width: calc(100% - var(--endpoint-icon-width) - #{$icon-side-paddin
   margin-left: 7px;
 }
 
-.title,
-.subtitle {
-  @include ellipsis-limit;
-}
-
 .title {
-  font-size: 28px;
+  @include ellipsis-limit;
+
+  font-size: 32px;
   font-weight: bold;
   color: #303030;
-
-  &.single {
-    font-size: 32px;
-  }
-}
-
-.subtitle {
-  font-weight: bold;
-  font-size: 20px;
-  color: #969696;
 }
 
 .settingsIcon {

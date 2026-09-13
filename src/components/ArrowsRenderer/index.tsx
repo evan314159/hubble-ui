@@ -13,6 +13,7 @@ export interface ArrowRendererProps {
   arrow: Arrow;
   overlay?: MutRef<Element>;
   arrowsForeground?: MutRef<Element>;
+  onArrowClick?: (arrow: Arrow) => void;
 }
 
 export type AbstractArrowsRendererProps = Omit<Props, 'renderer'>;
@@ -25,6 +26,7 @@ export type Props = {
   renderer: ArrowRenderer;
   overlay?: MutRef<Element>;
   arrowsForeground?: MutRef<Element>;
+  onArrowClick?: (arrow: Arrow) => void;
 };
 
 // This component manages multiple arrows to be able to draw them
@@ -42,6 +44,7 @@ export const ArrowsRenderer = observer(function ArrowsRenderer(props: Props) {
             arrow={arrow}
             overlay={props.overlay}
             arrowsForeground={props.arrowsForeground}
+            onArrowClick={props.onArrowClick}
           />
         );
       })}

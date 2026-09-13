@@ -1,3 +1,4 @@
-export { ServiceMapPlacementStrategy } from './placement';
+export type { ServiceMapPlacement } from './placement';
 export { ServiceMapArrowStrategy } from './arrows';
-export { ServiceMapArrow, AccessPointArrow } from './arrow';
+export { ServiceMapArrow } from './arrow';
+export { ElkServiceMapPlacementStrategy } from './elk-placement';

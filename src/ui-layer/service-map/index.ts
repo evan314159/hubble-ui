@@ -7,13 +7,17 @@ import { EventEmitter } from '~/utils/emitter';
 
 import { ServiceCard } from '~/domain/service-map';
 import { Application } from '~/domain/common';
-import { FilterEntry } from '~/domain/filtering/filter-entry';
+import { FilterEntry, MatchMode as FilterMatchMode } from '~/domain/filtering/filter-entry';
 
 import { RefsCollector } from '~/ui/service-map/collector';
 import { Options } from '~/ui-layer/common';
 import { StatusCenter } from '~/ui-layer/status-center';
 
-import { ServiceMapPlacementStrategy, ServiceMapArrowStrategy } from './coordinates';
+import {
+  ElkServiceMapPlacementStrategy,
+  ServiceMapArrowStrategy,
+  ServiceMapPlacement,
+} from './coordinates';
 
 export enum Event {
   ArrowsDropped = 'arrows-dropped',
@@ -30,7 +34,7 @@ export class ServiceMap extends EventEmitter<Handlers> {
   private readonly router: Router;
 
   public readonly collector: RefsCollector;
-  public readonly placement: ServiceMapPlacementStrategy;
+  public readonly placement: ServiceMapPlacement;
   public readonly arrows: ServiceMapArrowStrategy;
 
   @mobx.observable
@@ -54,8 +58,8 @@ export class ServiceMap extends EventEmitter<Handlers> {
     this.router = opts.router;
 
     this.collector = new RefsCollector(this.store.currentFrame);
-    this.placement = new ServiceMapPlacementStrategy(this.store.currentFrame);
-    this.arrows = new ServiceMapArrowStrategy(this.store.currentFrame, this.placement);
+    this.placement = new ElkServiceMapPlacementStrategy(this.store.currentFrame);
+    this.arrows = new ServiceMapArrowStrategy(this.placement);
 
     this.setupEventHandlers();
   }
@@ -86,17 +90,35 @@ export class ServiceMap extends EventEmitter<Handlers> {
   }
 
   public onCardSelect(card: ServiceCard) {
-    this.dataLayer.serviceMap.toggleActiveCardFilterEntry(card.id);
+    this.dataLayer.serviceMap.toggleActiveCardFilterEntry(card.filterEntries);
+    this.router.commit();
+  }
+
+  // NOTE: A specific line only narrows the flow list down to just it under
+  // NOTE: AND semantics -- force that mode on regardless of what was active,
+  // NOTE: since OR would defeat the point of clicking a specific line.
+  // NOTE: Looked up in placement.cardsList (not ServiceStore) since it's a
+  // NOTE: superset -- every real card plus whatever world-split/world-merge
+  // NOTE: synthetic card currently stands in for a world identity (see
+  // NOTE: world-split.ts) -- an arrow's endpoints are always ids from this
+  // NOTE: same list, real or synthetic.
+  public onArrowSelect(senderId: string, receiverId: string, ports?: number[]) {
+    const sender = this.placement.cardsList.find(c => c.id === senderId);
+    const receiver = this.placement.cardsList.find(c => c.id === receiverId);
+    if (sender == null || receiver == null) return;
+
+    this.dataLayer.controls.setFilterMatchMode(FilterMatchMode.And);
+    this.dataLayer.serviceMap.toggleActiveLinkFilterEntry(
+      sender.filterEntries,
+      receiver.filterEntries,
+      ports,
+    );
     this.router.commit();
   }
 
   public onFilterEntriesChange(ff: FilterEntry[] | null) {
     this.dataLayer.controls.setFlowFilters(ff);
     this.router.commit();
-  }
-
-  public cardsMutationsObserved() {
-    this.collector.cardsMutationsObserved();
   }
 
   public toggleDetached() {
@@ -133,38 +155,14 @@ export class ServiceMap extends EventEmitter<Handlers> {
   private setupEventHandlers() {
     this.collector.onCoordsUpdated(coords => {
       // NOTE: This runInAction wrapping ensures that no reactions will be
-      // triggered in between of those `set` calls. They will be called only
-      // once, after arrows rebuild procedure.
+      // triggered in between of those `set` calls.
       this.emit(Event.ArrowsDropped);
       mobx.runInAction(() => {
         // NOTE: We only set card dimensions here, so they are valid even if
-        // card was rendered in invisible area with -100500 coords.
+        // card was rendered in invisible area with -100500 coords. arrows.arrows
+        // is a plain computed over cardsBBoxes/connections/edgeRoutes now, so
+        // it picks this up on its own -- no separate rebuild() step needed.
         this.placement.setCardHeights(coords.cards, 0.5);
-
-        // NOTE: Access points are different, we don't need their dimensions
-        // and store exact position of its center, even from invisible area with
-        // -100500 coords. Thus we need to check if card was correctly placed
-        // and if it wasn't, skip and wait for another coords.
-        coords.accessPoints.forEach(apCoords => {
-          const isCardPositioned = !!this.placement.cardsCoords.get(apCoords.cardId);
-          if (!isCardPositioned) return;
-
-          this.placement.setAccessPointCoords(apCoords.id, apCoords.bbox.center, 0.5);
-        });
-
-        coords.httpEndpoints.forEach(apCoords => {
-          const isCardPositioned = !!this.placement.cardsCoords.get(apCoords.cardId);
-          if (!isCardPositioned) return;
-
-          this.placement.setHttpEndpointCoords(
-            apCoords.cardId,
-            apCoords.urlPath,
-            apCoords.method,
-            apCoords.bbox.center,
-          );
-        });
-
-        this.arrows.rebuild();
       });
     });
 

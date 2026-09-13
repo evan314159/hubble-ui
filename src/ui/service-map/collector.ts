@@ -1,14 +1,10 @@
-import _ from 'lodash';
 import { MutableRefObject as MutRef } from 'react';
 
 import { StoreFrame } from '~/store/frame';
 import { reactionRef } from '~/ui/react/refs';
-import { getIntersectBBoxAsync } from '~/ui/hooks/useIntersectCoords';
 import { EventEmitter } from '~/utils/emitter';
 
 import { XYWH } from '~/domain/geometry';
-import { Method } from '~/domain/http';
-import { L7Kind } from '~/domain/hubble';
 
 export enum Event {
   CoordsUpdated = 'coords-updated',
@@ -19,23 +15,8 @@ export type IdentifierBBox = {
   bbox: XYWH;
 };
 
-export type APIdentifierBBox = {
-  id: string;
-  cardId: string;
-  bbox: XYWH;
-};
-
-export type HTTPIdentifiedBBox = {
-  cardId: string;
-  urlPath: string;
-  method: Method;
-  bbox: XYWH;
-};
-
 export type AllCoords = {
-  accessPoints: APIdentifierBBox[];
   cards: IdentifierBBox[];
-  httpEndpoints: HTTPIdentifiedBBox[];
 };
 
 export type Handlers = {
@@ -45,30 +26,32 @@ export type Handlers = {
 // NOTE: This is a helper class that collects refs to important elements
 // that are used as connectors
 export class RefsCollector extends EventEmitter<Handlers> {
-  private accessPoints: Map<string, MutRef<HTMLDivElement | null>> = new Map();
   private cardRoots: Map<string, MutRef<HTMLDivElement | null>> = new Map();
-
-  // NOTE: { urlPathname -> { httpMethod -> ref }}
-  private httpConnectors: Map<string, Map<string, MutRef<HTMLDivElement | null>>> = new Map();
-
-  private throttledCardsUpdated?: _.DebouncedFunc<() => void> | null = null;
+  private elemToCardId: Map<Element, string> = new Map();
+  private resizeObserver: ResizeObserver;
   private rootSVGGElement: SVGGElement | null = null;
+
+  // NOTE: A placement-only card (e.g. a split-out world destination) never
+  // NOTE: has a matching entry in the store's cardsMap -- that's expected,
+  // NOTE: not a bug, so warn about it once per id instead of every single
+  // NOTE: measurement pass (which fires continuously while flows stream in).
+  private warnedMissingSvcIds: Set<string> = new Set();
 
   constructor(private frame: StoreFrame) {
     super(false);
 
-    this.throttledCardsUpdated = _.debounce(async () => {
-      await this.cardsUpdated();
-    }, 0);
+    this.resizeObserver = new ResizeObserver(entries => this.onResize(entries));
   }
 
   public clear() {
-    this.throttledCardsUpdated?.cancel();
-
-    this.accessPoints.clear();
+    // NOTE: ResizeObserver.disconnect() only stops observing every current
+    // NOTE: target -- the observer instance itself stays reusable, so it
+    // NOTE: doesn't need recreating here the way the old debounce did.
+    this.resizeObserver.disconnect();
+    this.elemToCardId.clear();
     this.cardRoots.clear();
-    this.httpConnectors.clear();
     this.rootSVGGElement = null;
+    this.warnedMissingSvcIds.clear();
   }
 
   public onCoordsUpdated(fn: Handlers[Event.CoordsUpdated]): this {
@@ -80,126 +63,38 @@ export class RefsCollector extends EventEmitter<Handlers> {
     const existing = this.cardRoots.get(cardId);
     if (existing != null) return existing;
 
-    const newRef = reactionRef(null, () => {
-      this.throttledCardsUpdated?.();
+    // NOTE: React nulls a ref on unmount. Once this ref has actually held a
+    // NOTE: mounted element, a later null means the card is genuinely gone
+    // NOTE: (not just "not mounted yet") -- drop its entry so it stops being
+    // NOTE: tracked forever. Without this, any card that disappears (a split
+    // NOTE: world destination aging out of the flow buffer, a pod going
+    // NOTE: away, ...) leaks here permanently.
+    let wasMounted = false;
+    let observedElem: HTMLDivElement | null = null;
+
+    const newRef = reactionRef<HTMLDivElement | null>(null, current => {
+      if (observedElem != null) {
+        this.resizeObserver.unobserve(observedElem);
+        this.elemToCardId.delete(observedElem);
+        observedElem = null;
+      }
+
+      if (current != null) {
+        wasMounted = true;
+        observedElem = current;
+        this.elemToCardId.set(current, cardId);
+        this.ensureRootSVGGElement(current);
+        this.resizeObserver.observe(current);
+      } else if (wasMounted) {
+        this.cardRoots.delete(cardId);
+      }
     });
 
     this.cardRoots.set(cardId, newRef);
     return newRef;
   }
 
-  public accessPointConnector(apId: string): MutRef<HTMLDivElement | null> {
-    const existing = this.accessPoints.get(apId);
-    if (existing != null) return existing;
-
-    const newRef = reactionRef(null, () => {
-      this.throttledCardsUpdated?.();
-    });
-
-    this.accessPoints.set(apId, newRef);
-    return newRef;
-  }
-
-  public httpMethodConnector(
-    urlPathname: string,
-    httpMethod: Method,
-  ): MutRef<HTMLDivElement | null> {
-    if (!this.httpConnectors.has(urlPathname)) {
-      this.httpConnectors.set(urlPathname, new Map());
-    }
-
-    const pathnames = this.httpConnectors.get(urlPathname);
-    const existing = pathnames?.get(httpMethod);
-    if (existing != null) return existing;
-
-    const newRef = reactionRef(null, () => {
-      this.throttledCardsUpdated?.();
-    });
-
-    pathnames?.set(httpMethod, newRef);
-    return newRef;
-  }
-
-  public cardsMutationsObserved() {
-    this.throttledCardsUpdated?.();
-  }
-
-  public async cardsUpdated() {
-    const apCoordsPromises: Promise<APIdentifierBBox>[] = [];
-    const cardCoordsPromises: Promise<IdentifierBBox>[] = [];
-    const httpCoordsPromises: Promise<HTTPIdentifiedBBox>[] = [];
-
-    this.cardRoots.forEach((cardRef, cardId) => {
-      const cardRoot = cardRef.current;
-      // NOTE: An element has null body when detached from current DOM Tree
-      if (cardRoot == null || cardRoot.closest('body') == null) {
-        console.log(`card ${cardId} is invisible now`);
-        return;
-      }
-
-      // NOTE: We need that root element to be able to take DOMMatrix
-      this.ensureRootSVGGElement(cardRoot);
-
-      // NOTE: Save card's bbox
-      const p = getIntersectBBoxAsync({
-        elem: cardRoot,
-        oneshot: true,
-      }).then(bbox => ({ bbox, id: cardId }));
-
-      cardCoordsPromises.push(p);
-
-      const svc = this.frame.services.cardsMap.get(cardId);
-      if (svc == null) {
-        console.warn(`cannot find svc for card ${cardId}`);
-        return;
-      }
-
-      // NOTE: Traverse across all the cards endpoints and save their coords
-      const l7endpoints = this.frame.interactions.l7endpoints.get(cardId);
-      svc.accessPoints.forEach((ap, id) => {
-        const apRef = this.accessPoints.get(id);
-        if (apRef == null || apRef.current == null) {
-          console.warn(`cannot find ap ${id} ref for svc ${cardId}`);
-          return;
-        }
-
-        const p = getIntersectBBoxAsync({
-          elem: apRef.current,
-          oneshot: true,
-        }).then(bbox => ({ bbox, id, cardId }));
-
-        apCoordsPromises.push(p);
-
-        // NOTE: Now we are going to check if there are some http endpoints
-        // for this access point
-        const httpEndpoints = l7endpoints?.get(`${ap.port}`)?.get(L7Kind.HTTP);
-        if (httpEndpoints == null) return;
-
-        httpEndpoints.forEach(httpEndpoint => {
-          const http = httpEndpoint.ref.http;
-          if (http == null) return;
-
-          const urlPath = http.parsedUrl?.pathname;
-          const httpRef = this.httpConnectors.get(urlPath)?.get(http.method);
-          if (httpRef == null || httpRef.current == null) return;
-
-          const p = getIntersectBBoxAsync({
-            elem: httpRef.current,
-            oneshot: true,
-          }).then(bbox => ({ bbox, cardId, urlPath, method: http.method }));
-
-          httpCoordsPromises.push(p);
-        });
-      });
-    });
-
-    // NOTE: Wait for all the coords before actually applying DOMMatrix to them
-    const [apCoords, cardCoords, httpCoords] = await Promise.all([
-      Promise.all(apCoordsPromises),
-      Promise.all(cardCoordsPromises),
-      Promise.all(httpCoordsPromises),
-    ]);
-
+  private onResize(entries: ResizeObserverEntry[]) {
     const g = this.rootSVGGElement;
     if (g == null) {
       console.warn('root svg g element is null: it could happen because of frame flush');
@@ -214,35 +109,27 @@ export class RefsCollector extends EventEmitter<Handlers> {
       return;
     }
 
-    this.emit(Event.CoordsUpdated, {
-      accessPoints: this.mapAPCoordsWithMatrix(apCoords, m),
-      cards: this.mapCoordsWithMatrix(cardCoords, m),
-      httpEndpoints: this.mapHTTPCoordsWithMatrix(httpCoords, m),
+    const cardCoords: IdentifierBBox[] = [];
+
+    entries.forEach(entry => {
+      const cardId = this.elemToCardId.get(entry.target);
+      if (cardId == null) return;
+
+      const bbox = XYWH.fromDOMRect(entry.target.getBoundingClientRect()).applyDOMMatrix(m);
+      cardCoords.push({ id: cardId, bbox });
+
+      if (
+        this.frame.services.cardsMap.get(cardId) == null &&
+        !this.warnedMissingSvcIds.has(cardId)
+      ) {
+        this.warnedMissingSvcIds.add(cardId);
+        console.warn(`cannot find svc for card ${cardId}`);
+      }
     });
-  }
 
-  private mapCoordsWithMatrix(coords: IdentifierBBox[], m: DOMMatrix): IdentifierBBox[] {
-    return coords.map(c => ({
-      id: c.id,
-      bbox: c.bbox.applyDOMMatrix(m),
-    }));
-  }
+    if (cardCoords.length === 0) return;
 
-  private mapHTTPCoordsWithMatrix(
-    coords: HTTPIdentifiedBBox[],
-    m: DOMMatrix,
-  ): HTTPIdentifiedBBox[] {
-    return coords.map(c => ({
-      ...c,
-      bbox: c.bbox.applyDOMMatrix(m),
-    }));
-  }
-
-  private mapAPCoordsWithMatrix(coords: APIdentifierBBox[], m: DOMMatrix): APIdentifierBBox[] {
-    return coords.map(c => ({
-      ...c,
-      bbox: c.bbox.applyDOMMatrix(m),
-    }));
+    this.emit(Event.CoordsUpdated, { cards: cardCoords });
   }
 
   private ensureRootSVGGElement(elem: HTMLElement): SVGGElement | null {
