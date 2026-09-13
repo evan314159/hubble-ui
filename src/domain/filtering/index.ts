@@ -1,5 +1,10 @@
 import { Flow } from '~/domain/flows';
-import { FilterEntry, Kind as FilterKind, Direction as FilterDirection } from './filter-entry';
+import {
+  FilterEntry,
+  Kind as FilterKind,
+  Direction as FilterDirection,
+  MatchMode as FilterMatchMode,
+} from './filter-entry';
 
 import { Link, ServiceCard } from '~/domain/service-map';
 import { LinkConnections } from '~/domain/interactions/connections';
@@ -13,7 +18,7 @@ import { FiltersDiff } from './filters-diff';
 
 export { Filters };
 export type { FiltersObject, FiltersKey };
-export { FilterEntry, FilterKind, FilterDirection };
+export { FilterEntry, FilterKind, FilterDirection, FilterMatchMode };
 export { filterFlow, filterFlowByEntry };
 export { filterLink, filterLinkByEntry };
 export { filterService, filterServiceByEntry };

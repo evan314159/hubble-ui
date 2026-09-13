@@ -4,6 +4,7 @@ import {
   filterLink,
   filterLinkByEntry,
   FilterEntry,
+  FilterMatchMode,
 } from '~/domain/filtering';
 
 import { Verdict } from '~/domain/hubble';
@@ -352,6 +353,82 @@ describe('filterLink', () => {
       tcpMixed,
     },
   );
+
+  describe('matchMode: and', () => {
+    test('from + to both matching passes', () => {
+      const filters = Filters.fromObject({
+        matchMode: FilterMatchMode.And,
+        filters: [
+          FilterEntry.parse('from:identity=src-123')!,
+          FilterEntry.parse('to:identity=dst-456')!,
+        ],
+      });
+
+      expect(filterLink(tcpForwarded, filters)).toBe(true);
+    });
+
+    test('from matching but to not matching fails (this is the from/to AND bug)', () => {
+      const filters = Filters.fromObject({
+        matchMode: FilterMatchMode.And,
+        filters: [
+          FilterEntry.parse('from:identity=src-123')!,
+          FilterEntry.parse('to:identity=dst-456-wrong')!,
+        ],
+      });
+
+      expect(filterLink(tcpForwarded, filters)).toBe(false);
+    });
+
+    test('to matching but from not matching fails', () => {
+      const filters = Filters.fromObject({
+        matchMode: FilterMatchMode.And,
+        filters: [
+          FilterEntry.parse('from:identity=src-123-wrong')!,
+          FilterEntry.parse('to:identity=dst-456')!,
+        ],
+      });
+
+      expect(filterLink(tcpForwarded, filters)).toBe(false);
+    });
+
+    test('neither matching fails', () => {
+      const filters = Filters.fromObject({
+        matchMode: FilterMatchMode.And,
+        filters: [
+          FilterEntry.parse('from:identity=src-123-wrong')!,
+          FilterEntry.parse('to:identity=dst-456-wrong')!,
+        ],
+      });
+
+      expect(filterLink(tcpForwarded, filters)).toBe(false);
+    });
+
+    test('multiple from entries are OR-ed within the group (alternative aliases)', () => {
+      const filters = Filters.fromObject({
+        matchMode: FilterMatchMode.And,
+        filters: [
+          FilterEntry.parse('from:identity=src-123-wrong')!,
+          FilterEntry.parse('from:identity=src-123')!,
+          FilterEntry.parse('to:identity=dst-456')!,
+        ],
+      });
+
+      expect(filterLink(tcpForwarded, filters)).toBe(true);
+    });
+  });
+
+  describe('matchMode: or (default, unchanged behavior)', () => {
+    test('from matching alone is enough, even if to does not match', () => {
+      const filters = Filters.fromObject({
+        filters: [
+          FilterEntry.parse('from:identity=src-123')!,
+          FilterEntry.parse('to:identity=dst-456-wrong')!,
+        ],
+      });
+
+      expect(filterLink(tcpForwarded, filters)).toBe(true);
+    });
+  });
 
   // These filters don't work for links since they don't have enough information
   // to decide drop or not to drop, hence links are always passed

@@ -166,6 +166,8 @@ export const ServiceMapApp = observer(function ServiceMapApp() {
       onShowRemoteNodeToggle={() => ui.controls.toggleShowRemoteNode()}
       showPrometheusApp={store.controls.showPrometheusApp}
       onShowPrometheusAppToggle={() => ui.controls.toggleShowPrometheusApp()}
+      filterMatchMode={ui.controls.filterMatchMode}
+      onFilterMatchModeChange={mode => ui.controls.setFilterMatchMode(mode)}
     />
   );
 
