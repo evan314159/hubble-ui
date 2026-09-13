@@ -132,25 +132,37 @@ export const ServiceMapApp = observer(function ServiceMapApp() {
     ui.controls.setFlowFilters([FilterEntry.newDNS(dns).setDirection(FilterDirection.Either)]);
   }, []);
 
-  const cardRenderer = mobx.action((props: CardProps<ServiceCard>) => {
-    const l7endpoints = store.currentFrame.interactions.l7endpoints;
+  // NOTE: A stable reference matters here, not just as a render-cost nicety --
+  // NOTE: mobx-react's observer() wraps components in memo(), which bails out
+  // NOTE: of a re-render only when props are shallow-equal. A fresh function
+  // NOTE: every ServiceMapApp render (this used to be a plain inline
+  // NOTE: `mobx.action((props) => ...)`) makes `cardRenderer` a "changed" prop
+  // NOTE: on Map/MapElements every single time, forcing every card to
+  // NOTE: re-render regardless of whether anything it reads actually changed.
+  // NOTE: store/ui are stable for the app's lifetime, so this closure only
+  // NOTE: needs to be created once.
+  const cardRenderer = useCallback(
+    mobx.action((props: CardProps<ServiceCard>) => {
+      const l7endpoints = store.currentFrame.interactions.l7endpoints;
 
-    return (
-      <ServiceMapCard
-        {...props}
-        key={props.card.id}
-        active={ui.serviceMap.isCardActive(props.card)}
-        isUnsizedMode={props.isUnsizedMode}
-        collector={ui.serviceMap.collector}
-        className={props.className}
-        l7endpoints={l7endpoints.forReceiver(props.card.id)}
-        flows={props.card.isWorld ? store.currentFrame.interactions.flows : undefined}
-        maxHttpEndpointsVisible={5}
-        isClusterMeshed={store.currentFrame.services.isClusterMeshed}
-        onHeaderClick={onCardSelect}
-      />
-    );
-  });
+      return (
+        <ServiceMapCard
+          {...props}
+          key={props.card.id}
+          active={ui.serviceMap.isCardActive(props.card)}
+          isUnsizedMode={props.isUnsizedMode}
+          collector={ui.serviceMap.collector}
+          className={props.className}
+          l7endpoints={l7endpoints.forReceiver(props.card.id)}
+          flows={props.card.isWorld ? store.currentFrame.interactions.flows : undefined}
+          maxHttpEndpointsVisible={5}
+          isClusterMeshed={store.currentFrame.services.isClusterMeshed}
+          onHeaderClick={onCardSelect}
+        />
+      );
+    }),
+    [store, ui, onCardSelect],
+  );
 
   const loadingOverlay = getLoadingOverlayProps(
     flowsWaitTimeout,
