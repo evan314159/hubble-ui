@@ -76,6 +76,10 @@ export class Controls {
     this.dataLayer.controls.toggleShowPrometheusApp();
   }
 
+  public toggleShowICMPv6() {
+    this.dataLayer.controls.toggleShowICMPv6();
+  }
+
   public toggleGroupWorldCards() {
     this.dataLayer.controls.toggleGroupWorldCards();
   }

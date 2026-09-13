@@ -16,6 +16,7 @@ export class FiltersDiff implements IDiff {
       Diff.new(f?.skipKubeDns),
       Diff.new(f?.skipRemoteNode),
       Diff.new(f?.skipPrometheusApp),
+      Diff.new(f?.skipICMPv6),
     );
   }
 
@@ -75,6 +76,7 @@ export class FiltersDiff implements IDiff {
     public skipKubeDns: Diff<boolean>,
     public skipRemoteNode: Diff<boolean>,
     public skipPrometheusApp: Diff<boolean>,
+    public skipICMPv6: Diff<boolean>,
   ) {}
 
   public tap(fn: (self: FiltersDiff) => void): this {
@@ -92,6 +94,7 @@ export class FiltersDiff implements IDiff {
     this.skipKubeDns.step(rhs?.skipKubeDns);
     this.skipRemoteNode.step(rhs?.skipRemoteNode);
     this.skipPrometheusApp.step(rhs?.skipPrometheusApp);
+    this.skipICMPv6.step(rhs?.skipICMPv6);
 
     return this;
   }
@@ -106,6 +109,7 @@ export class FiltersDiff implements IDiff {
     this.skipKubeDns.invert();
     this.skipRemoteNode.invert();
     this.skipPrometheusApp.invert();
+    this.skipICMPv6.invert();
 
     return this;
   }
@@ -120,6 +124,7 @@ export class FiltersDiff implements IDiff {
     this.skipKubeDns.setUnchanged();
     this.skipRemoteNode.setUnchanged();
     this.skipPrometheusApp.setUnchanged();
+    this.skipICMPv6.setUnchanged();
 
     return this;
   }
@@ -134,7 +139,8 @@ export class FiltersDiff implements IDiff {
       this.skipHost.changed ||
       this.skipKubeDns.changed ||
       this.skipRemoteNode.changed ||
-      this.skipPrometheusApp.changed
+      this.skipPrometheusApp.changed ||
+      this.skipICMPv6.changed
     );
   }
 

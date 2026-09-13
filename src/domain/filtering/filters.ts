@@ -16,6 +16,7 @@ const assignFilterProps = (to: FiltersObject, from: FiltersObject) => {
     skipKubeDns: from.skipKubeDns,
     skipRemoteNode: from.skipRemoteNode,
     skipPrometheusApp: from.skipPrometheusApp,
+    skipICMPv6: from.skipICMPv6,
   });
 
   return to;
@@ -31,6 +32,7 @@ export interface FiltersObject {
   skipKubeDns?: boolean;
   skipRemoteNode?: boolean;
   skipPrometheusApp?: boolean;
+  skipICMPv6?: boolean;
 }
 
 export type FiltersKey = keyof FiltersObject;
@@ -45,6 +47,7 @@ export class Filters implements FiltersObject, Diffable<Filters, FiltersDiff> {
   public skipKubeDns?: boolean;
   public skipRemoteNode?: boolean;
   public skipPrometheusApp?: boolean;
+  public skipICMPv6?: boolean;
 
   public static fromObject(obj: FiltersObject): Filters {
     return new Filters(obj);
@@ -61,6 +64,7 @@ export class Filters implements FiltersObject, Diffable<Filters, FiltersDiff> {
       skipKubeDns: false,
       skipRemoteNode: false,
       skipPrometheusApp: false,
+      skipICMPv6: true,
     };
   }
 
@@ -99,7 +103,8 @@ export class Filters implements FiltersObject, Diffable<Filters, FiltersDiff> {
       this.skipHost != rhs.skipHost ||
       this.skipKubeDns != rhs.skipKubeDns ||
       this.skipRemoteNode != rhs.skipRemoteNode ||
-      this.skipPrometheusApp != rhs.skipPrometheusApp
+      this.skipPrometheusApp != rhs.skipPrometheusApp ||
+      this.skipICMPv6 != rhs.skipICMPv6
     ) {
       return false;
     }

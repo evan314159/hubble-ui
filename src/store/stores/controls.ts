@@ -21,6 +21,7 @@ export class ControlStore {
   public showKubeDns = false;
   public showRemoteNode = false;
   public showPrometheusApp = false;
+  public showICMPv6 = false;
   public groupWorldCards = false;
 
   constructor() {
@@ -140,6 +141,16 @@ export class ControlStore {
     return this.setShowPrometheusApp(!this.showPrometheusApp);
   }
 
+  setShowICMPv6(val: boolean): boolean {
+    this.showICMPv6 = val;
+
+    return val;
+  }
+
+  toggleShowICMPv6(): boolean {
+    return this.setShowICMPv6(!this.showICMPv6);
+  }
+
   setGroupWorldCards(val: boolean): boolean {
     this.groupWorldCards = val;
 
@@ -157,6 +168,7 @@ export class ControlStore {
     this.showHost = !f.skipHost;
     this.showKubeDns = !f.skipKubeDns;
     this.showRemoteNode = !f.skipRemoteNode;
+    this.showICMPv6 = !f.skipICMPv6;
     this.showPrometheusApp = !f.skipPrometheusApp;
   }
 

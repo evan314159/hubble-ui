@@ -1,5 +1,6 @@
 import { Link } from '~/domain/service-map';
 import { FilterEntry, Kind as FilterKind, MatchMode, matchesEntries } from './filter-entry';
+import { IPProtocol } from '~/domain/hubble';
 
 import { Filters } from '~/domain/filtering';
 
@@ -16,6 +17,8 @@ export const filterLink = (link: Link, filters: Filters): boolean => {
   }
 
   if (link.isDNSRequest && filters.skipKubeDns) return false;
+
+  if (!!filters.skipICMPv6 && link.ipProtocol === IPProtocol.ICMPv6) return false;
 
   if (!filters.filters?.length) return true;
 
@@ -42,6 +45,23 @@ export const filterLinkByEntry = (l: Link, e: FilterEntry): boolean => {
       if (e.toRequired) {
         if (!destIdentityMatch && e.negative) return true;
         toOk = destIdentityMatch;
+      }
+
+      break;
+    }
+    case FilterKind.Port: {
+      const port = Number(e.query);
+      if (Number.isNaN(port)) break;
+
+      const destPortMatch = l.destinationPort === port;
+
+      if (e.fromRequired) {
+        if (!destPortMatch && e.negative) return true;
+        fromOk = destPortMatch;
+      }
+      if (e.toRequired) {
+        if (!destPortMatch && e.negative) return true;
+        toOk = destPortMatch;
       }
 
       break;

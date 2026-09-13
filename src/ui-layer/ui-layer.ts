@@ -179,9 +179,11 @@ export class UILayer {
     // of the app.
     this.store.controls.setShowHost(storageParams.isHostShown);
     this.store.controls.setShowKubeDns(storageParams.isKubeDNSShown);
+    this.store.controls.setShowICMPv6(storageParams.isICMPv6Shown);
     this.store.controls.setGroupWorldCards(storageParams.groupWorldCards);
     this.store.controls.setHttpStatus(routeParams.httpStatus);
     this.store.controls.setFlowFilters(routeParams.flowFilters);
+    this.store.controls.setFilterMatchMode(routeParams.matchMode);
     this.store.controls.setVerdicts(routeParams.verdicts);
     this.store.namespaces.setCurrent(routeParams.namespace);
 

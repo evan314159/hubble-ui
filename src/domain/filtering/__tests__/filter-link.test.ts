@@ -415,6 +415,32 @@ describe('filterLink', () => {
 
       expect(filterLink(tcpForwarded, filters)).toBe(true);
     });
+
+    test('from + to + port all matching passes', () => {
+      const filters = Filters.fromObject({
+        matchMode: FilterMatchMode.And,
+        filters: [
+          FilterEntry.parse('from:identity=src-123')!,
+          FilterEntry.parse('to:identity=dst-456')!,
+          FilterEntry.parse('to:port=8080')!,
+        ],
+      });
+
+      expect(filterLink(tcpForwarded, filters)).toBe(true);
+    });
+
+    test('from + to matching but wrong port fails -- port is its own group, not OR-ed with identity', () => {
+      const filters = Filters.fromObject({
+        matchMode: FilterMatchMode.And,
+        filters: [
+          FilterEntry.parse('from:identity=src-123')!,
+          FilterEntry.parse('to:identity=dst-456')!,
+          FilterEntry.parse('to:port=9999')!,
+        ],
+      });
+
+      expect(filterLink(tcpForwarded, filters)).toBe(false);
+    });
   });
 
   describe('matchMode: or (default, unchanged behavior)', () => {

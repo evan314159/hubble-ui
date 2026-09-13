@@ -58,6 +58,7 @@ export class Store {
       skipKubeDns: !this.controls.showKubeDns,
       skipRemoteNode: !this.controls.showRemoteNode,
       skipPrometheusApp: !this.controls.showPrometheusApp,
+      skipICMPv6: !this.controls.showICMPv6,
     });
   }
 

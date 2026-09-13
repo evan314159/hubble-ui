@@ -19,6 +19,8 @@ import { Verdict, TCPFlagName, PodSelector } from '~/domain/hubble';
 import { ServiceCard } from '~/domain/service-map';
 import { KV, Labels } from '~/domain/labels';
 import { FilterEntry, FilterDirection } from '~/domain/filtering';
+import { Arrow } from '~/ui/layout/abstract/arrows';
+import { ServiceMapArrow } from '~/ui-layer/service-map/coordinates/arrow';
 
 import { useApplication } from '~/application';
 
@@ -63,6 +65,17 @@ export const ServiceMapApp = observer(function ServiceMapApp() {
 
   const onCardSelect = useCallback((srvc: ServiceCard) => {
     ui.serviceMap.onCardSelect(srvc);
+  }, []);
+
+  const onArrowClick = useCallback((arrow: Arrow) => {
+    if (!(arrow instanceof ServiceMapArrow)) return;
+    if (arrow.senderId == null || arrow.receiverId == null) return;
+
+    // NOTE: Port 0 is the backend's "no real port" sentinel for portless
+    // NOTE: protocols like ICMP -- filtering on it excludes those flows
+    // NOTE: entirely instead of matching them.
+    const ports = arrow.ports.filter(p => p.port !== 0).map(p => p.port);
+    ui.serviceMap.onArrowSelect(arrow.senderId, arrow.receiverId, ports);
   }, []);
 
   const onCloseFlowsTableSidebar = useCallback(() => {
@@ -166,6 +179,8 @@ export const ServiceMapApp = observer(function ServiceMapApp() {
       onShowRemoteNodeToggle={() => ui.controls.toggleShowRemoteNode()}
       showPrometheusApp={store.controls.showPrometheusApp}
       onShowPrometheusAppToggle={() => ui.controls.toggleShowPrometheusApp()}
+      showICMPv6={store.controls.showICMPv6}
+      onShowICMPv6Toggle={() => ui.controls.toggleShowICMPv6()}
       groupWorldCards={store.controls.groupWorldCards}
       onGroupWorldCardsToggle={() => ui.controls.toggleGroupWorldCards()}
       filterMatchMode={ui.controls.filterMatchMode}
@@ -196,6 +211,7 @@ export const ServiceMapApp = observer(function ServiceMapApp() {
             placement={ui.serviceMap.placement}
             arrows={ui.serviceMap.arrows}
             arrowsRenderer={ServiceMapArrowsRenderer}
+            onArrowClick={onArrowClick}
             cards={ui.serviceMap.placement.cardsList}
             cardRenderer={cardRenderer}
             visibleHeight={mapVisibleHeight ?? 0}

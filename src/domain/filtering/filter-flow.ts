@@ -1,10 +1,13 @@
 import { Flow } from '~/domain/flows';
 import { FilterEntry, Kind as FilterKind, MatchMode, matchesEntries } from './filter-entry';
+import { IPProtocol } from '~/domain/hubble';
 
 import { Filters } from '~/domain/filtering';
 
 export const filterFlow = (flow: Flow, filters: Filters): boolean => {
-  if (filters.namespace != null) {
+  // NOTE: namespace === '' means "All namespaces" (no restriction) -- only a
+  // NOTE: non-empty namespace should actually narrow flows.
+  if (!!filters.namespace) {
     if (
       flow.sourceNamespace !== filters.namespace &&
       flow.destinationNamespace !== filters.namespace
@@ -37,6 +40,10 @@ export const filterFlow = (flow: Flow, filters: Filters): boolean => {
       (flow.destinationPort === 53 && flow.destinationLabelProps.isKubeDNS)
     )
       return false;
+  }
+
+  if (!!filters.skipICMPv6) {
+    if (flow.protocol === IPProtocol.ICMPv6) return false;
   }
 
   if (filters.httpStatus != null) {
@@ -105,6 +112,15 @@ export const filterFlowByEntry = (flow: Flow, filter: FilterEntry): boolean => {
 
       if (filter.fromRequired) fromOk = flow.senderHasWorkload(workload);
       if (filter.toRequired) toOk = flow.receiverHasWorkload(workload);
+
+      break;
+    }
+    case FilterKind.Port: {
+      const port = Number(filter.query);
+      if (Number.isNaN(port)) break;
+
+      if (filter.fromRequired) fromOk = flow.sourcePort === port;
+      if (filter.toRequired) toOk = flow.destinationPort === port;
 
       break;
     }

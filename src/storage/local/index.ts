@@ -16,6 +16,7 @@ const SHOW_HOST_KEY = '@hubble-ui/show-host';
 const SHOW_KUBEDNS_KEY = '@hubble-ui/show-kube-dns';
 const SHOW_REMOTE_NODE_KEY = '@hubble-ui/show-remote-node';
 const SHOW_PROMETHEUS_SERVICE_KEY = '@hubble-ui/show-prometheus-app';
+const SHOW_ICMPV6_KEY = '@hubble-ui/show-icmpv6';
 const GROUP_WORLD_CARDS_KEY = '@hubble-ui/group-world-cards';
 const DETAILS_PANEL_POS = '@hubble-ui/panel-position';
 const DATA_MODE = '@hubble-ui/data-mode';
@@ -142,6 +143,14 @@ export function getShowPrometheusApp(): boolean {
 
 export function saveShowPrometheusApp(val: boolean) {
   localStorage.setItem(SHOW_PROMETHEUS_SERVICE_KEY, val ? 'true' : 'false');
+}
+
+export function getShowICMPv6(): boolean {
+  return localStorage.getItem(SHOW_ICMPV6_KEY) === 'true';
+}
+
+export function saveShowICMPv6(val: boolean) {
+  localStorage.setItem(SHOW_ICMPV6_KEY, val ? 'true' : 'false');
 }
 
 export function getGroupWorldCards(): boolean {
