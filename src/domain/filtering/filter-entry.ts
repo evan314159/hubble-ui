@@ -11,7 +11,21 @@ export enum Kind {
   Workload = 'workload',
   TCPFlag = 'tcp-flag',
   Pod = 'pod',
+  Port = 'port',
 }
+
+// NOTE: Kinds used as alternative ways to identify the same endpoint (a card
+// NOTE: can match by identity OR workload OR label) -- Port/TCPFlag are
+// NOTE: properties of the flow itself, not an endpoint alias, so they must
+// NOTE: never be grouped in with identity kinds (see matchesEntries below).
+const IDENTITY_KINDS = new Set<Kind>([
+  Kind.Label,
+  Kind.Ip,
+  Kind.Dns,
+  Kind.Identity,
+  Kind.Workload,
+  Kind.Pod,
+]);
 
 export enum Direction {
   From = 'from',
@@ -25,11 +39,12 @@ export enum MatchMode {
 }
 
 // NOTE: Or: any entry matching is enough (the default, and the only mode
-// NOTE: prior to this option existing). And: entries sharing a direction are
-// NOTE: alternative ways to identify the same endpoint (OR'd together), but
-// NOTE: every direction group present must have a match (AND across groups)
-// NOTE: -- e.g. a from:X + to:Y pair only matches links that are both from X
-// NOTE: and to Y, not either alone.
+// NOTE: prior to this option existing). And: entries sharing a direction AND
+// NOTE: an identity-vs-property kind are alternative ways to identify the
+// NOTE: same thing (OR'd together, e.g. a card's identity/workload/label
+// NOTE: aliases, or a line's multiple ports), but every such group present
+// NOTE: must have a match (AND across groups) -- e.g. from:X + to:Y + port:Z
+// NOTE: only matches a link that satisfies all three, not any one alone.
 export function matchesEntries(
   entries: FilterEntry[],
   matches: (entry: FilterEntry) => boolean,
@@ -55,10 +70,11 @@ export function matchesEntries(
 
   if (positive.length === 0) return true;
 
-  const groups = new Map<Direction, FilterEntry[]>();
+  const groups = new Map<string, FilterEntry[]>();
   positive.forEach(e => {
-    if (!groups.has(e.direction)) groups.set(e.direction, []);
-    groups.get(e.direction)!.push(e);
+    const key = `${e.direction}:${IDENTITY_KINDS.has(e.kind)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(e);
   });
 
   for (const group of groups.values()) {
@@ -162,6 +178,15 @@ export class FilterEntry {
   public static unique(base: Iterable<FilterEntry> | null | undefined): FilterEntry[] {
     const [result] = FilterEntry.combine(base);
     return result;
+  }
+
+  public static newPort(port: number): FilterEntry {
+    return new FilterEntry({
+      kind: Kind.Port,
+      query: String(port),
+      direction: Direction.Either,
+      meta: '',
+    });
   }
 
   public static newTCPFlag(flag: string): FilterEntry {

@@ -6,7 +6,7 @@ import { Application } from '~/domain/common';
 import * as dhelpers from '~/domain/helpers';
 
 import { DataLayer } from '~/data-layer';
-import { FilterEntry } from '~/domain/filtering';
+import { FilterEntry, FilterMatchMode } from '~/domain/filtering';
 
 import {
   RouteAction,
@@ -107,6 +107,10 @@ export class Router extends EventEmitter<Handlers> {
     const verdicts = dhelpers.verdict.parseManySet(this.searchParams.get(RouteParam.Verdicts), '-');
     const httpStatus = this.searchParams.get(RouteParam.HttpStatus);
     const flowFilters = FilterEntry.parseMany(this.searchParams.get(RouteParam.FlowsFilter));
+    const matchMode =
+      this.searchParams.get(RouteParam.MatchMode) === FilterMatchMode.And
+        ? FilterMatchMode.And
+        : FilterMatchMode.Or;
 
     const app = this.getCurrentApplication();
 
@@ -115,6 +119,7 @@ export class Router extends EventEmitter<Handlers> {
       verdicts,
       httpStatus,
       flowFilters,
+      matchMode,
       app,
     };
   }
@@ -196,6 +201,13 @@ export class Router extends EventEmitter<Handlers> {
     this.dataLayer.controls.onFlowFiltersChanged(diff => {
       const str = diff.after?.map(f => f.toString()).join(',') || null;
       this.updateRouteParam(RouteParam.FlowsFilter, str);
+    });
+
+    this.dataLayer.controls.onFilterMatchModeChanged(diff => {
+      this.updateRouteParam(
+        RouteParam.MatchMode,
+        diff.after === FilterMatchMode.And ? FilterMatchMode.And : null,
+      );
     });
   }
 

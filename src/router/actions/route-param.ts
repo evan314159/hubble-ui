@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import { Application } from '~/domain/common';
-import { FilterEntry } from '~/domain/filtering/filter-entry';
+import { FilterEntry, MatchMode as FilterMatchMode } from '~/domain/filtering/filter-entry';
 import { Verdict } from '~/domain/hubble';
 
 export enum RouteParam {
@@ -8,6 +8,7 @@ export enum RouteParam {
   Verdicts = 'verdicts',
   FlowsFilter = 'flows-filter',
   HttpStatus = 'http-status',
+  MatchMode = 'match-mode',
 }
 
 export const routeParamSet = new Set(Object.values(RouteParam));
@@ -22,6 +23,7 @@ export type RouteParams = {
   verdicts: Set<Verdict>;
   httpStatus: string | null;
   flowFilters: FilterEntry[];
+  matchMode: FilterMatchMode;
 };
 
 export const parseParamName = (name?: any): RouteParam | null => {

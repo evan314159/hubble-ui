@@ -19,6 +19,8 @@ interface Props {
   onShowRemoteNodeToggle?: () => void;
   showPrometheusApp: boolean;
   onShowPrometheusAppToggle?: () => void;
+  showICMPv6: boolean;
+  onShowICMPv6Toggle?: () => void;
   groupWorldCards: boolean;
   onGroupWorldCardsToggle?: () => void;
 }
@@ -30,6 +32,7 @@ export const VisualFiltersDropdown = observer(function VisualFiltersDropdown(pro
     !props.showKubeDns ||
     !props.showRemoteNode ||
     !props.showPrometheusApp ||
+    !props.showICMPv6 ||
     props.groupWorldCards;
 
   const content = (
@@ -74,6 +77,17 @@ export const VisualFiltersDropdown = observer(function VisualFiltersDropdown(pro
             checked={!props.showPrometheusApp}
             label="Hide prometheus app"
             onClick={props.onShowPrometheusAppToggle}
+            className={css.checkbox}
+          />
+        }
+      />
+      <MenuItem
+        shouldDismissPopover={false}
+        text={
+          <Checkbox
+            checked={!props.showICMPv6}
+            label="Hide ICMPv6"
+            onClick={props.onShowICMPv6Toggle}
             className={css.checkbox}
           />
         }

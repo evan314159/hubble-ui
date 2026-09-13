@@ -1,0 +1,32 @@
+@import '~/styles/common/layout';
+
+$dot-size: 10px;
+
+.accessPoint {
+  @include row(flex-start, center);
+
+  .data {
+    @include row(flex-start, center);
+    font-size: 20px;
+
+    .dot {
+      @include exact-size($dot-size, $dot-size);
+
+      border-radius: 50%;
+      background: #c8cdd3;
+
+      margin: 0 10px;
+    }
+
+    .port {
+      font-size: 24px;
+      font-weight: bold;
+
+      color: #7129ba;
+    }
+
+    .protocol {
+      color: black;
+    }
+  }
+}

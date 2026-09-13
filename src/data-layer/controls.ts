@@ -19,6 +19,7 @@ export enum Event {
   ShowKubeDNSChanged = 'show-kube-dns-changed',
   ShowRemoteNodeChanged = 'show-remote-node-changed',
   ShowPrometheusAppChanged = 'show-prometheus-app-changed',
+  ShowICMPv6Changed = 'show-icmpv6-changed',
   HTTPStatusChanged = 'http-status-changed',
   FlowFiltersChanged = 'flow-filters-changed',
   FilterMatchModeChanged = 'filter-match-mode-changed',
@@ -32,6 +33,7 @@ export type Handlers = {
   [Event.ShowKubeDNSChanged]: (e: Diff<boolean>) => void;
   [Event.ShowRemoteNodeChanged]: (e: Diff<boolean>) => void;
   [Event.ShowPrometheusAppChanged]: (e: Diff<boolean>) => void;
+  [Event.ShowICMPv6Changed]: (e: Diff<boolean>) => void;
   [Event.HTTPStatusChanged]: (st: Diff<string>) => void;
   [Event.FlowFiltersChanged]: (ff: Diff<FilterEntry[]>) => void;
   [Event.FilterMatchModeChanged]: (m: Diff<FilterMatchMode>) => void;
@@ -131,6 +133,13 @@ export class Controls extends EventEmitter<Handlers> {
     this.emit(Event.ShowPrometheusAppChanged, Diff.new(!isActive).step(isActive));
   }
 
+  public toggleShowICMPv6() {
+    const isActive = this.store.controls.toggleShowICMPv6();
+    storage.saveShowICMPv6(isActive);
+
+    this.emit(Event.ShowICMPv6Changed, Diff.new(!isActive).step(isActive));
+  }
+
   // NOTE: Purely a client-side rendering choice (never sent to the backend),
   // NOTE: so no FiltersChanged/router wiring -- the placement/arrow
   // NOTE: strategies read the flag directly and MobX handles reactivity.
@@ -215,6 +224,11 @@ export class Controls extends EventEmitter<Handlers> {
     return this;
   }
 
+  public onShowICMPv6Changed(fn: Handlers[Event.ShowICMPv6Changed]): this {
+    this.on(Event.ShowICMPv6Changed, fn);
+    return this;
+  }
+
   public onHTTPStatusChanged(fn: Handlers[Event.HTTPStatusChanged]): this {
     this.on(Event.HTTPStatusChanged, fn);
     return this;
@@ -278,6 +292,14 @@ export class Controls extends EventEmitter<Handlers> {
 
     this.onFilterMatchModeChanged(diff => {
       const fd = this.store.filtersDiff.tap(d => d.matchMode.replace(diff));
+      this.emit(Event.FiltersChanged, fd);
+    });
+
+    this.onShowICMPv6Changed(diff => {
+      const fd = this.store.filtersDiff.tap(d => {
+        return d.skipICMPv6.replace(diff).invert();
+      });
+
       this.emit(Event.FiltersChanged, fd);
     });
   }
