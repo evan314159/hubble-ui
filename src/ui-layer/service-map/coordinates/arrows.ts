@@ -1,110 +1,38 @@
-import { actionBound, computed, observable } from 'mobx';
+import { computed, observable } from 'mobx';
 
-import { MapUtils } from '~/utils/iter-tools/map';
-import { Vec2 } from '~/domain/geometry';
+import { ArrowStrategy, ArrowsMap } from '~/ui/layout/abstract';
 
-import { sizes } from '~/ui/vars';
-import { ArrowStrategy } from '~/ui/layout/abstract';
+import { ServiceMapPlacement } from './placement';
+import { ServiceMapArrow } from './arrow';
+import { createCardOffsetAdvancers } from './helpers';
 
-import { StoreFrame } from '~/store/frame';
-import { InteractionStore } from '~/store/stores/interaction';
-import { ServiceStore } from '~/store/stores/service';
-import { ControlStore } from '~/store/stores/controls';
-
-import { ServiceMapPlacementStrategy } from './placement';
-import { AccessPointArrow, ServiceMapArrow } from './arrow';
-import { ConnectorCoordsAccumulator, createCardOffsetAdvancers } from './helpers';
-
-export type CombinedAccessPointArrows = Map<string, Map<string, AccessPointArrow>>;
-
-// NOTE: This strategry determines coords of arrows that are to be rendered on
-// NOTE: ServiceMap
+// NOTE: This strategy determines coords of arrows that are to be rendered on
+// NOTE: ServiceMap. There's one arrow per (sender, receiver) pair -- ports,
+// NOTE: protocols, verdicts etc. across every access point that pair talks
+// NOTE: over are aggregated onto that single arrow (see ServiceMapArrow) and
+// NOTE: shown as a label, rather than routing a separate line into each port.
 export class ServiceMapArrowStrategy extends ArrowStrategy {
   @observable
-  private accessor placement: ServiceMapPlacementStrategy;
+  private accessor placement: ServiceMapPlacement;
 
-  @observable
-  private accessor interactions: InteractionStore;
-
-  @observable
-  private accessor services: ServiceStore;
-
-  @observable
-  private accessor controls: ControlStore;
-
-  // NOTE: { connectorId -> { apArrowId -> AccessPointArrow }}
-  @observable
-  private accessor _combinedAccessPointArrows: CombinedAccessPointArrows = new Map();
-
-  constructor(frame: StoreFrame, placement: ServiceMapPlacementStrategy) {
+  constructor(placement: ServiceMapPlacement) {
     super();
-    this.interactions = frame.interactions;
-    this.services = frame.services;
-    this.controls = frame.controls;
     this.placement = placement;
   }
 
-  @actionBound
-  public rebuild() {
-    this.rebuildArrows();
-  }
-
-  @actionBound
-  public clear() {
-    this._arrows.clear();
-    this._combinedAccessPointArrows.clear();
-  }
-
-  @actionBound
-  private rebuildArrows() {
-    this.clear();
-
-    this.arrowsMap.forEach((arrow, arrowId) => {
-      this._arrows.set(arrowId, arrow);
-    });
-
-    // NOTE: This operation walks through entire AccessPointArrows and eliminate
-    // overlapping ones, i e if there are two different arrows from different
-    // sender cards, they can have different verdicts to the same AccessPoint.
-    // In this case multiple duplicated arrows would be rendered, but only one
-    // of them (topmost) will be visible.
-    this.combinedAccessPointArrows.forEach((arrow, arrowId) => {
-      this._combinedAccessPointArrows.set(arrowId, arrow);
-    });
-  }
-
+  // NOTE: The base class's `arrows` reads from `_arrows`, a plain observable
+  // NOTE: field that only a manual rebuild() ever wrote to -- rebuild() was
+  // NOTE: called solely from RefsCollector's resize-driven onCoordsUpdated
+  // NOTE: handler, so an ELK relayout that only *moves* already-correctly-
+  // NOTE: sized cards (no resize involved) never refreshed it, leaving arrows
+  // NOTE: drawn from stale pre-relayout positions until some unrelated card
+  // NOTE: happened to resize. arrowsMap is already a proper computed over the
+  // NOTE: live cardsBBoxes/connections/edgeRoutes -- returning it directly
+  // NOTE: makes `arrows` correct by construction instead of by remembering to
+  // NOTE: call rebuild() at every place cards could move.
   @computed
-  public get combinedAccessPointArrows(): CombinedAccessPointArrows {
-    const combined: CombinedAccessPointArrows = new Map();
-
-    const arrows = this._arrows as Map<string, ServiceMapArrow>;
-    if (!(MapUtils.pickFirst(arrows) instanceof ServiceMapArrow)) {
-      return combined;
-    }
-
-    arrows.forEach(arrow => {
-      arrow.accessPointArrows.forEach((apArrow, apArrowId) => {
-        if (apArrow.connectorId == null) return;
-
-        if (!combined.has(apArrow.connectorId)) {
-          combined.set(apArrow.connectorId, new Map());
-        }
-
-        const connectorArrows = combined.get(apArrow.connectorId);
-        if (connectorArrows == null) return;
-
-        // NOTE: apArrowId looks like `<connectorId> -> <apId>`
-        const existing = connectorArrows.get(apArrowId);
-        if (existing == null) {
-          connectorArrows.set(apArrowId, apArrow);
-          return;
-        }
-
-        existing.addVerdicts(apArrow.verdicts);
-      });
-    });
-
-    return combined;
+  public override get arrows(): ArrowsMap {
+    return new Map(this.arrowsMap);
   }
 
   @computed
@@ -112,108 +40,27 @@ export class ServiceMapArrowStrategy extends ArrowStrategy {
     const arrows: Map<string, ServiceMapArrow> = new Map();
     const bboxes = this.placement.cardsBBoxes;
 
-    // NOTE: Keep track of how many connectors a receiver has to properly
-    // NOTE: compute vertical coordinate of next connector
-    const cardConnectorCoords = new ConnectorCoordsAccumulator(
-      this.connections,
-      this.connectorMidPoints,
-      this.placement,
-    );
-
     this.connections.outgoings.forEach((receivers, senderId) => {
       const senderBBox = bboxes.get(senderId);
       if (senderBBox == null) return;
 
-      receivers.forEach((receiverAccessPoints, receiverId) => {
+      receivers.forEach((links, receiverId) => {
         const receiverBBox = bboxes.get(receiverId);
         if (receiverBBox == null) return;
 
-        const receiverCard = this.services.byId(receiverId);
-        if (receiverCard == null) return;
-        // NOTE: Save sender/receiver bboxes to be able to construct path
-        // NOTE: that walks around those bboxes later
-
         const arrow = ServiceMapArrow.new().from(senderId, senderBBox).to(receiverId, receiverBBox);
-
         arrows.set(arrow.id, arrow);
 
-        const connector = cardConnectorCoords.accumulate(senderId, receiverId);
-        if (connector == null) return;
-        const { connectorId, connectorCoords } = connector;
-
-        // NOTE: Arrow starts from the same point on top right of the card and
-        // NOTE: ends on the connector coords.
-        // NOTE: Add initial beginning and ending and bend arrow if needed to
-        // NOTE: go around some boxes (sender and receiver bboxes)
-        arrow
-          .addPoint({
-            x: senderBBox.x + senderBBox.w,
-            y: senderBBox.y + sizes.arrowStartTopOffset,
-          })
-          .addPoint(connectorCoords);
-
-        const receiverHttpEndpoints = this.placement.httpEndpointCoords.get(receiverId);
-        const isReceiverActive = this.controls.areSomeFilterEntriesEnabled(
-          receiverCard.filterEntries,
-        );
-
-        const areHttpEndpointsHidden = receiverHttpEndpoints == null || !isReceiverActive;
-
-        // NOTE: Here we build small arrows from card outer connector to
-        // NOTE: endpoint connectors (points and http endpoints)
-        receiverAccessPoints.forEach((link, apId) => {
-          const coords = this.placement.accessPointCoords.get(apId);
-          if (coords == null) return;
-
+        links.forEach(link => {
           arrow
             .addLinkThroughput(link.throughput)
-            .addAccessPointArrow(connectorId, apId)
             .addVerdicts(link.verdicts)
             .addAuthTypes(link.authTypes)
             .setEncryption(link.isEncrypted)
-            .addPoint(connectorCoords)
-            .addPoint(coords);
-
-          if (areHttpEndpointsHidden) return;
-
-          // NOTE: For simplicty, treat HTTP endpoints as a regular access
-          // NOTE: points.
-          receiverHttpEndpoints.forEach((methods, urlPath) => {
-            methods.forEach((xy, method) => {
-              const l7endpoint = this.interactions.getHttpEndpointByParts(
-                receiverId,
-                link.destinationPort,
-                method,
-                urlPath,
-              );
-
-              if (l7endpoint == null) {
-                console.warn(
-                  'ServiceMapArrow building: cannot find appropriate L7Endpoint',
-                  apId,
-                  method,
-                  urlPath,
-                );
-
-                return;
-              }
-
-              arrow
-                .addAccessPointArrow(connectorId, l7endpoint.id)
-                .addVerdicts(l7endpoint.verdicts)
-                .addAuthTypes(link.authTypes)
-                .setEncryption(link.isEncrypted)
-                .addPoint(connectorCoords)
-                .addPoint(xy);
-            });
-          });
+            .addPort(link.destinationPort, link.ipProtocol);
         });
       });
     });
-
-    cardConnectorCoords.adjustVertically();
-    // NOTE: Now, when all connector coords adjusted properly, we can alter
-    // NOTE: arrow points to fit the appropriate path.
 
     // NOTE: Keep track of all arrows that go around sender and receiver
     // NOTE: bboxes, not to put them on overlapping parallel paths when that
@@ -221,50 +68,94 @@ export class ServiceMapArrowStrategy extends ArrowStrategy {
     const offsets = createCardOffsetAdvancers();
 
     arrows.forEach(arrow => {
-      arrow.buildPointsAroundSenderAndReceiver(offsets);
-      arrow.computeFlowsInfoIndicatorPosition();
+      if (arrow.senderId == null || arrow.receiverId == null) return;
+      if (arrow.senderBBox == null || arrow.receiverBBox == null) return;
+
+      const route = this.placement.getEdgeRoute(arrow.senderId, arrow.receiverId);
+
+      if (route != null && route.length > 0) {
+        // NOTE: Each edge gets its own ELK-picked boundary point, not one
+        // NOTE: point shared by every edge touching the card -- the latter
+        // NOTE: fans out diagonally on nodes with many edges.
+        arrow.useExternalRoute(route);
+      } else {
+        // NOTE: elk.layout() is async -- this is a transient fallback for the
+        // NOTE: gap between a new edge showing up in `connections` and the
+        // NOTE: next layout run resolving with its route. Bottom-to-top exit/
+        // NOTE: enter, matching this strategy's layout direction.
+        const senderBBox = arrow.senderBBox;
+        const receiverBBox = arrow.receiverBBox;
+
+        const start = { x: senderBBox.x + senderBBox.w / 2, y: senderBBox.y };
+        const end = { x: receiverBBox.x + receiverBBox.w / 2, y: receiverBBox.y + receiverBBox.h };
+
+        arrow.addPoint(start).addPoint(end).buildPointsAroundSenderAndReceiver(offsets);
+      }
     });
+
+    this.mergeEntriesBySamePort(arrows);
+    this.declutterFlowsIndicators(arrows);
 
     return arrows;
   }
 
-  @computed
-  private get connections() {
-    return this.interactions.connections;
-  }
+  // NOTE: A busy receiver (e.g. a world card aggregating many senders) can
+  // NOTE: have several arrows land close together along one edge -- stagger
+  // NOTE: each label's distance from the node, cycling through a few
+  // NOTE: multipliers by entry-x order, so adjacent labels don't overlap.
+  private declutterFlowsIndicators(arrows: Map<string, ServiceMapArrow>) {
+    const offsetMultipliers = [1, 1.8, 2.6];
+    const byReceiver = new Map<string, ServiceMapArrow[]>();
 
-  // Gives mid of physical APs
-  // { cardId -> Vec2 }
-  @computed
-  private get connectorMidPoints(): Map<string, Vec2> {
-    const index = new Map<string, Vec2>();
+    arrows.forEach(arrow => {
+      if (arrow.receiverId == null) return;
 
-    this.services.cardsList.forEach(card => {
-      if (card.accessPoints.size === 0) return;
-      const position = Vec2.zero();
-      let nPoints = card.accessPoints.size;
-
-      card.accessPoints.forEach(accessPoint => {
-        const coords = this.placement.accessPointCoords.get(accessPoint.id);
-        if (!coords) return;
-
-        position.addInPlace(coords);
-      });
-
-      const httpEndpoints = this.placement.httpEndpointCoords.get(card.id);
-      if (httpEndpoints != null && this.controls.areSomeFilterEntriesEnabled(card.filterEntries)) {
-        httpEndpoints.forEach(methods => {
-          methods.forEach(coords => {
-            position.addInPlace(coords);
-          });
-
-          nPoints += methods.size;
-        });
-      }
-
-      index.set(card.id, position.mul(1 / nPoints));
+      if (!byReceiver.has(arrow.receiverId)) byReceiver.set(arrow.receiverId, []);
+      byReceiver.get(arrow.receiverId)!.push(arrow);
     });
 
-    return index;
+    byReceiver.forEach(group => {
+      if (group.length < 2) {
+        group.forEach(arrow => arrow.computeFlowsInfoIndicatorPosition());
+        return;
+      }
+
+      group.sort((a, b) => (a.end?.x ?? 0) - (b.end?.x ?? 0));
+      group.forEach((arrow, i) => {
+        arrow.computeFlowsInfoIndicatorPosition(offsetMultipliers[i % offsetMultipliers.length]);
+      });
+    });
+  }
+
+  // NOTE: Multiple senders reaching one receiver on the same port land at
+  // NOTE: separate ELK-picked spots along its edge by default -- retarget
+  // NOTE: them to a shared entry point so they visibly converge into one line.
+  private mergeEntriesBySamePort(arrows: Map<string, ServiceMapArrow>) {
+    const groups = new Map<string, ServiceMapArrow[]>();
+
+    arrows.forEach(arrow => {
+      if (arrow.receiverId == null || arrow.ports.length !== 1) return;
+
+      const port = arrow.ports[0];
+      const key = `${arrow.receiverId}:${port.port}/${port.protocol}`;
+
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(arrow);
+    });
+
+    groups.forEach(group => {
+      if (group.length < 2) return;
+
+      const xs = group.map(a => a.end?.x).filter((x): x is number => x != null);
+      if (xs.length === 0) return;
+
+      const sharedX = xs.reduce((sum, x) => sum + x, 0) / xs.length;
+      group.forEach(a => a.snapEntryX(sharedX));
+    });
+  }
+
+  @computed
+  private get connections() {
+    return this.placement.connections;
   }
 }

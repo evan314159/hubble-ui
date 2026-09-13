@@ -6,7 +6,6 @@ import { ServiceMapArrowStrategy } from '~/ui-layer/service-map/coordinates/arro
 import { MapUtils } from '~/utils/iter-tools/map';
 
 import { ServiceMapArrowBody } from './ServiceMapArrowBody';
-import { ServiceMapArrowDuckFeet } from './ServiceMapArrowDuckFeet';
 
 export type Props = Omit<AbstractProps, 'strategy'> & {
   strategy: ServiceMapArrowStrategy;
@@ -31,24 +30,10 @@ const ServiceMapArrows = observer(function ServiceMapArrows(props: Props) {
               arrow={arrow}
               overlay={props.overlay}
               arrowsForeground={props.arrowsForeground}
+              onArrowClick={props.onArrowClick}
             />
           );
         })}
-      </g>
-      <g className="duck-feets">
-        {MapUtils.new(props.strategy.combinedAccessPointArrows).map(
-          (connectorId, combinedArrows) => {
-            return (
-              <ServiceMapArrowDuckFeet
-                key={connectorId}
-                connectorId={connectorId}
-                arrows={combinedArrows}
-                arrowsForeground={props.arrowsForeground}
-                overlay={props.overlay}
-              />
-            );
-          },
-        )}
       </g>
     </g>
   );

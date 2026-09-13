@@ -1,21 +1,28 @@
 import { XY, Vec2, Line2, utils as geomUtils } from '~/domain/geometry';
-import { AccessPointArrow, ServiceMapArrow } from '~/ui-layer/service-map/coordinates/arrow';
+import { ArrowPort, ServiceMapArrow } from '~/ui-layer/service-map/coordinates/arrow';
 
 import { chunks } from '~/utils/iter-tools';
-import { colors, sizes } from '~/ui/vars';
-import { LinkThroughput, Verdict } from '~/domain/hubble';
+import { sizes } from '~/ui/vars';
+import * as protocolHelpers from '~/domain/helpers/protocol';
 
 // NOTE: ArrowHandle is a small triangle rendered on the middle of the arrow
 export type ArrowHandle = [Vec2, Vec2];
 
-export type InnerArrowsLines = d3.Selection<SVGLineElement, AccessPointArrow, SVGGElement, unknown>;
+const MAX_LABEL_PORTS = 5;
 
-export type FlowsIndicatorCircle = d3.Selection<
-  SVGCircleElement,
-  LinkThroughput,
-  SVGGElement,
-  unknown
->;
+// NOTE: Collapses an arrow's aggregated ports into a short label, one port
+// NOTE: per line (e.g. ["8080/tcp", "51820/udp"]) rather than one comma-joined
+// NOTE: line -- a label a few lines tall costs far less horizontal space on a
+// NOTE: busy map than one wide line would.
+export const formatPortsLabelLines = (ports: ArrowPort[]): string[] => {
+  const parts = ports.map(p => protocolHelpers.formatPortProtocol(p.port, p.protocol));
+
+  if (parts.length > MAX_LABEL_PORTS) {
+    return [...parts.slice(0, MAX_LABEL_PORTS), `+${parts.length - MAX_LABEL_PORTS}`];
+  }
+
+  return parts;
+};
 
 // NOTE: Handle is created for each segment of arrow path if length of
 // NOTE: the segment >= sizes.arrowHandleWidth (i e if it is long enough)
@@ -46,53 +53,46 @@ export const collectHandles = (arrow: ServiceMapArrow): ArrowHandle[] => {
   return handles;
 };
 
+// NOTE: One handle pointing out of the sender, one pointing into the
+// NOTE: receiver -- rendered regardless of segment length (unlike
+// NOTE: collectHandles above) so every line shows which way traffic flows
+// NOTE: even when too short for a midline handle to fit.
+export const collectEndpointHandles = (arrow: ServiceMapArrow): ArrowHandle[] => {
+  const points = arrow.points;
+  if (points.length < 2) return [];
+
+  const handles: ArrowHandle[] = [];
+  const maxLength = sizes.arrowHandleWidth;
+
+  const handleAt = (a: XY, b: XY, fromStart: boolean): ArrowHandle | null => {
+    const start = Vec2.fromXY(a);
+    const end = Vec2.fromXY(b);
+    const direction = end.sub(start).normalize();
+    if (direction.isZero()) return null;
+
+    const length = Math.min(maxLength, start.distance(end));
+    const anchor = fromStart
+      ? start.add(direction.mul(length / 2))
+      : end.sub(direction.mul(length / 2));
+
+    return [anchor.sub(direction.mul(length / 2)), anchor.add(direction.mul(length / 2))];
+  };
+
+  const startHandle = handleAt(points[0], points[1], true);
+  if (startHandle != null) handles.push(startHandle);
+
+  const endHandle = handleAt(points[points.length - 2], points[points.length - 1], false);
+  if (endHandle != null) handles.push(endHandle);
+
+  return handles;
+};
+
 export const arrowHandleId = (handle: ArrowHandle, arrow: ServiceMapArrow): string => {
   const [from, to] = handle;
   const mid = geomUtils.linterp2(from, to, 0.5);
 
   // WARN: precision lose here
   return `${arrow.id}-${Math.trunc(mid.x)},${Math.trunc(mid.y)}`;
-};
-
-const setInnerArrowEndsCoords = (lines: InnerArrowsLines): InnerArrowsLines => {
-  return lines
-    .attr('x1', d => d.start?.x || 0)
-    .attr('y1', d => d.start?.y || 0)
-    .attr('x2', d => d.end?.x || 0)
-    .attr('y2', d => d.end?.y || 0);
-};
-
-const innerArrowColor = (arrow: AccessPointArrow): string => {
-  return arrow.hasAbnormalVerdict ? colors.feetRedStroke : colors.feetNeutralStroke;
-};
-
-const innerArrowStrokeStyle = (arrow: AccessPointArrow): string | null => {
-  const v = arrow.verdicts;
-  return v.size > 1 && v.has(Verdict.Dropped) ? '7 15' : null;
-};
-
-const innerArrowStrokeWidth = (arrow: AccessPointArrow): number => {
-  return arrow.verdicts.has(Verdict.Dropped) ? sizes.feetInnerWidthThick : sizes.feetInnerWidth;
-};
-
-export const innerArrows = {
-  setBeginningAndEndCoords: setInnerArrowEndsCoords,
-  strokeColor: innerArrowColor,
-  strokeStyle: innerArrowStrokeStyle,
-  strokeWidth: innerArrowStrokeWidth,
-};
-
-const setFlowsInfoIndicatorPosition = (
-  self: FlowsIndicatorCircle,
-  coords: XY | null,
-): FlowsIndicatorCircle => {
-  if (coords == null) return self;
-
-  return self.attr('cx', coords.x).attr('cy', coords.y);
-};
-
-export const flowsInfoIndicator = {
-  setPosition: setFlowsInfoIndicatorPosition,
 };
 
 const arrowHandlePath = (handle: ArrowHandle | null): string => {
@@ -144,6 +144,17 @@ const arrowLinePath = (points: XY[]): string => {
     const [a, b, c] = chunk;
     let [d, e, angle] = geomUtils.roundCorner(r, [a, b, c]);
 
+    // roundCorner signals "there's no real corner to round here" (points
+    // coincide, or a segment was too short to round safely) by returning
+    // Math.PI with d/e set to the chunk's own endpoints -- drawing an SVG
+    // arc between those is wrong whenever they're not close together (SVG
+    // scales the radius up to reach them, producing a huge stray loop).
+    // Go straight there instead.
+    if (angle >= Math.PI - Number.EPSILON) {
+      line += `L ${e.x} ${e.y}`;
+      return;
+    }
+
     // This case occurs much more rarely than others, so using roundCorner
     // one more time is ok since angle computaion is part of entire function
     if (angle < Math.PI / 4) {
@@ -164,27 +175,7 @@ const arrowLinePath = (points: XY[]): string => {
   return line;
 };
 
-const startPlatePath = (lineEnding: XY) => {
-  const { x, y } = lineEnding;
-
-  // prettier-ignore
-  const r = 3, w = 5, h = 20;
-  const tr = `a ${r} ${r} 0 0 1 ${r} ${r}`;
-  const br = `a ${r} ${r} 0 0 1 -${r} ${r}`;
-
-  return `
-    M ${x - 1} ${y - h / 2}
-    h ${w - r}
-    ${tr}
-    v ${h - 2 * r}
-    ${br}
-    h -${w - r}
-    z
-  `;
-};
-
 export const svg = {
   arrowHandlePath,
   arrowLinePath,
-  startPlatePath,
 };
