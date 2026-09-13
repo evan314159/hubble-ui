@@ -10,25 +10,24 @@ import { CardProps } from '~/components/Card';
 import { NamespaceBackplate } from './NamespaceBackplate';
 
 import { useMapZoom } from './hooks/useMapZoom';
-import { useMutationObserver } from '~/ui/hooks/useMutationObserver';
 import { ArrowStrategy, PlacementStrategy } from '~/ui/layout';
+import { Arrow } from '~/ui/layout/abstract/arrows';
 
 import { sizes } from '~/ui/vars';
 import css from './styles.scss';
 
 export interface Props<C extends AbstractCard> {
   placement: PlacementStrategy;
-  namespace?: string | null;
-  namespaceBBox?: XYWH | null;
+  namespaceBBoxes?: Map<string, XYWH>;
   cards: Array<C>;
   wasDragged: boolean;
   visibleHeight: number;
   arrows?: ArrowStrategy;
   arrowsRenderer?: AbstractArrowsRenderer;
   arrowRenderer?: ArrowRenderer;
+  onArrowClick?: (arrow: Arrow) => void;
   cardRenderer: (cardProps: CardProps<C>) => ReactNode;
   onMapDrag?: (val: boolean) => void;
-  onCardMutated?: (muts: MutationRecord[]) => void;
 }
 
 export const MapElements = observer(function MapElements<C extends AbstractCard>(props: Props<C>) {
@@ -74,20 +73,16 @@ export const MapElements = observer(function MapElements<C extends AbstractCard>
     return [cards, unsizedCards];
   }).get();
 
-  // NOTE: We use only one mutation observer to watch over cards changes and
-  // react on that with arrows rebuilding in the end
-  useMutationObserver({ ref: cardsRef, options: { all: true } }, muts => {
-    props.onCardMutated?.(muts);
-  });
-
   return (
     <>
-      {props.namespaceBBox && props.namespace && (
-        <NamespaceBackplate
-          namespace={props.namespace}
-          xywh={props.namespaceBBox.addMargin(sizes.namespaceBackplatePadding)}
-        />
-      )}
+      {props.namespaceBBoxes &&
+        Array.from(props.namespaceBBoxes.entries()).map(([namespace, bbox]) => (
+          <NamespaceBackplate
+            key={namespace}
+            namespace={namespace}
+            xywh={bbox.addMargin(sizes.namespaceBackplatePadding)}
+          />
+        ))}
 
       <g className="underlay" ref={underlayRef}></g>
       {props.arrows &&
@@ -96,6 +91,7 @@ export const MapElements = observer(function MapElements<C extends AbstractCard>
             strategy={props.arrows}
             overlay={overlayRef}
             arrowsForeground={arrowsForegroundRef}
+            onArrowClick={props.onArrowClick}
           />
         ) : props.arrowRenderer != null ? (
           <ArrowsRenderer
@@ -103,6 +99,7 @@ export const MapElements = observer(function MapElements<C extends AbstractCard>
             renderer={props.arrowRenderer}
             overlay={overlayRef}
             arrowsForeground={arrowsForegroundRef}
+            onArrowClick={props.onArrowClick}
           />
         ) : null)}
 

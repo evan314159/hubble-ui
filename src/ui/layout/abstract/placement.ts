@@ -9,23 +9,22 @@ export abstract class PlacementStrategy {
   @observable
   protected accessor cardsXYs: Map<string, XY>;
 
-  @observable
-  protected accessor _accessPointCoords: Map<string, XY>;
-
   constructor() {
     this.cardsWHs = new Map();
     this.cardsXYs = new Map();
-
-    this._accessPointCoords = new Map();
   }
 
   public abstract get bbox(): XYWH;
+
+  // NOTE: One entry per namespace group ("island") that should get its own
+  // NOTE: backplate. Implementations that don't group cards by namespace can
+  // NOTE: return an empty (or single-entry) map.
+  public abstract get namespaceBBoxes(): Map<string, XYWH>;
 
   @actionBound
   public reset() {
     this.cardsWHs.clear();
     this.cardsXYs.clear();
-    this._accessPointCoords.clear();
   }
 
   @actionBound
@@ -113,39 +112,6 @@ export abstract class PlacementStrategy {
     });
 
     return nupdated;
-  }
-
-  @actionBound
-  public setAccessPointCoords(apId: string, xy: XY, eps?: number): boolean {
-    if (eps != null) {
-      const current = this._accessPointCoords.get(apId);
-
-      if (current != null) {
-        const dx = Math.abs(xy.x - current.x);
-        const dy = Math.abs(xy.y - current.y);
-
-        if (dx <= eps && dy <= eps) return false;
-      }
-    }
-
-    this._accessPointCoords.set(apId, xy);
-    return true;
-  }
-
-  @actionBound
-  public setAccessPointsCoords(coords: { id: string; bbox: XYWH }[], eps?: number): number {
-    let nupdated = 0;
-
-    coords.forEach(c => {
-      nupdated += this.setAccessPointCoords(c.id, c.bbox.center, eps) ? 1 : 0;
-    });
-
-    return nupdated;
-  }
-
-  @computed
-  get accessPointCoords(): Map<string, XY> {
-    return new Map(this._accessPointCoords);
   }
 
   @computed

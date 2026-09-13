@@ -5,10 +5,7 @@ $header-background: #f7f7f7;
 $border-radius: 4px;
 $border-width: 2px;
 $padding-left: 10px;
-$circle-inner: #d6c1ff;
-$circle-outer: #a778ff;
-$circle-diameter: 15px;
-$circle-width: 4px;
+$method-color: #a778ff;
 
 .httpEndpoint {
   @include column;
@@ -39,17 +36,8 @@ $circle-width: 4px;
     .connector {
       @include row(flex-start, center);
 
-      .circle {
-        @include exact-size($circle-diameter, $circle-diameter);
-
-        border-radius: 50%;
-        border: $circle-width solid $circle-outer;
-        background: $circle-inner;
-      }
-
       .method {
-        margin-left: 10px;
-        color: $circle-outer;
+        color: $method-color;
 
         text-transform: uppercase;
         font-weight: 600;

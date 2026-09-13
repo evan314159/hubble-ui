@@ -53,9 +53,28 @@ export const roundCorner = (r: number, points: [XY, XY, XY]): [XY, XY, number] =
     return [points[0], points[2], Math.PI];
   }
 
-  const offset = r / Math.tan(angle / 2);
-  const roundStart = linterp2(p1, p0, offset / distance(p0, p1));
-  const roundEnd = linterp2(p1, p2, offset / distance(p2, p1));
+  const l1 = distance(p0, p1);
+  const l2 = distance(p2, p1);
+
+  // NOTE: If either segment is itself near-zero-length (near-duplicate
+  // points, which routes assembled from multiple sources -- joins, external
+  // routing -- can produce), `offset / l` below can exceed 1 even for a tiny
+  // clamped `offset`, extrapolating the "rounded" point past the corner
+  // entirely. There's no meaningful corner to round here; skip it.
+  const MIN_SEGMENT_LENGTH = 1;
+  if (l1 < MIN_SEGMENT_LENGTH || l2 < MIN_SEGMENT_LENGTH) {
+    return [points[0], points[2], Math.PI];
+  }
+
+  // NOTE: offset blows up as angle -> 0 (a sharp near-reversal). Rounding is
+  // meant to be a small cosmetic softening of the corner, so it should never
+  // need to be more than a small multiple of the requested radius `r` -- cap
+  // it there first (this is what actually prevents the runaway case, since a
+  // sharp angle can occur between arbitrarily long segments), and separately
+  // keep it within each segment so short segments don't overshoot either.
+  const offset = Math.min(r / Math.tan(angle / 2), r * 3, 0.4 * Math.min(l1, l2));
+  const roundStart = linterp2(p1, p0, offset / l1);
+  const roundEnd = linterp2(p1, p2, offset / l2);
 
   return [roundStart, roundEnd, angle];
 };

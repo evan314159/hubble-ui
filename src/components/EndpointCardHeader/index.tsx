@@ -1,4 +1,3 @@
-import classnames from 'classnames';
 import React, { memo } from 'react';
 
 import { ServiceCard } from '~/domain/service-map';
@@ -9,17 +8,11 @@ import css from './styles.scss';
 
 export interface Props {
   card: ServiceCard;
-  currentNamespace?: string | null;
   onHeadlineClick?: () => void;
 }
 
 export const EndpointCardHeader = memo(function EndpointCardHeader(props: Props) {
-  const { card, currentNamespace } = props;
-  const showNamespace = !!card.namespace && card.namespace !== currentNamespace;
-
-  const titleClassName = classnames(css.title, {
-    [css.single]: !showNamespace,
-  });
+  const { card } = props;
 
   return (
     <div className={css.wrapper}>
@@ -27,8 +20,7 @@ export const EndpointCardHeader = memo(function EndpointCardHeader(props: Props)
         <EndpointLogo card={card} />
 
         <div className={css.headings}>
-          <div className={titleClassName}>{card.caption}</div>
-          {showNamespace && <div className={css.subtitle}>{card.namespace}</div>}
+          <div className={css.title}>{card.caption}</div>
         </div>
       </div>
     </div>
