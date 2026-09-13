@@ -1,7 +1,7 @@
 import { Verdict } from '~/domain/flows';
 import { Diff, IDiff } from '~/domain/diff';
 
-import { FilterEntry } from './filter-entry';
+import { FilterEntry, MatchMode } from './filter-entry';
 import { Filters } from './filters';
 
 export class FiltersDiff implements IDiff {
@@ -11,6 +11,7 @@ export class FiltersDiff implements IDiff {
       Diff.new(f?.verdicts).setComparator(FiltersDiff.verdictsEqual),
       Diff.new(f?.httpStatus),
       Diff.new(f?.filters).setComparator(FiltersDiff.filterEntriesEqual),
+      Diff.new(f?.matchMode),
       Diff.new(f?.skipHost),
       Diff.new(f?.skipKubeDns),
       Diff.new(f?.skipRemoteNode),
@@ -69,6 +70,7 @@ export class FiltersDiff implements IDiff {
     public verdicts: Diff<Set<Verdict>>,
     public httpStatus: Diff<string>,
     public filters: Diff<FilterEntry[]>,
+    public matchMode: Diff<MatchMode>,
     public skipHost: Diff<boolean>,
     public skipKubeDns: Diff<boolean>,
     public skipRemoteNode: Diff<boolean>,
@@ -85,6 +87,7 @@ export class FiltersDiff implements IDiff {
     this.verdicts.step(rhs?.verdicts);
     this.httpStatus.step(rhs?.httpStatus);
     this.filters.step(rhs?.filters);
+    this.matchMode.step(rhs?.matchMode);
     this.skipHost.step(rhs?.skipHost);
     this.skipKubeDns.step(rhs?.skipKubeDns);
     this.skipRemoteNode.step(rhs?.skipRemoteNode);
@@ -98,6 +101,7 @@ export class FiltersDiff implements IDiff {
     this.verdicts.invert();
     this.httpStatus.invert();
     this.filters.invert();
+    this.matchMode.invert();
     this.skipHost.invert();
     this.skipKubeDns.invert();
     this.skipRemoteNode.invert();
@@ -111,6 +115,7 @@ export class FiltersDiff implements IDiff {
     this.verdicts.setUnchanged();
     this.httpStatus.setUnchanged();
     this.filters.setUnchanged();
+    this.matchMode.setUnchanged();
     this.skipHost.setUnchanged();
     this.skipKubeDns.setUnchanged();
     this.skipRemoteNode.setUnchanged();
@@ -125,6 +130,7 @@ export class FiltersDiff implements IDiff {
       this.verdicts.changed ||
       this.httpStatus.changed ||
       this.filters.changed ||
+      this.matchMode.changed ||
       this.skipHost.changed ||
       this.skipKubeDns.changed ||
       this.skipRemoteNode.changed ||

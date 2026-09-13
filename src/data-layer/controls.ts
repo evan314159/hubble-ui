@@ -4,7 +4,7 @@ import * as storage from '~/storage/local';
 import { BackendAPI, ControlStream } from '~/api/customprotocol';
 
 import { ConnectionState, DataMode, TransferState } from '~/domain/interactions';
-import { FilterEntry, FiltersDiff } from '~/domain/filtering';
+import { FilterEntry, FilterMatchMode, FiltersDiff } from '~/domain/filtering';
 import { Verdict } from '~/domain/hubble';
 import { Diff } from '~/domain/diff';
 
@@ -21,6 +21,7 @@ export enum Event {
   ShowPrometheusAppChanged = 'show-prometheus-app-changed',
   HTTPStatusChanged = 'http-status-changed',
   FlowFiltersChanged = 'flow-filters-changed',
+  FilterMatchModeChanged = 'filter-match-mode-changed',
 }
 
 export type Handlers = {
@@ -33,6 +34,7 @@ export type Handlers = {
   [Event.ShowPrometheusAppChanged]: (e: Diff<boolean>) => void;
   [Event.HTTPStatusChanged]: (st: Diff<string>) => void;
   [Event.FlowFiltersChanged]: (ff: Diff<FilterEntry[]>) => void;
+  [Event.FilterMatchModeChanged]: (m: Diff<FilterMatchMode>) => void;
 };
 
 export class Controls extends EventEmitter<Handlers> {
@@ -151,6 +153,14 @@ export class Controls extends EventEmitter<Handlers> {
     );
   }
 
+  public setFilterMatchMode(mode: FilterMatchMode) {
+    const prev = this.store.controls.filterMatchMode;
+    if (prev === mode) return;
+
+    this.store.controls.setFilterMatchMode(mode);
+    this.emit(Event.FilterMatchModeChanged, Diff.new(prev).step(mode));
+  }
+
   public setDataMode(dm: DataMode, cs?: ConnectionState) {
     const isChanged = this.transferState.setDataMode(dm);
     if (isChanged) {
@@ -207,6 +217,11 @@ export class Controls extends EventEmitter<Handlers> {
     return this;
   }
 
+  public onFilterMatchModeChanged(fn: Handlers[Event.FilterMatchModeChanged]): this {
+    this.on(Event.FilterMatchModeChanged, fn);
+    return this;
+  }
+
   private setupEventHandlers() {
     this.onCurrentNamespaceChanged(nsDiff => {
       const fd = this.store.filtersDiff.tap(d => d.namespace.replace(nsDiff));
@@ -250,6 +265,11 @@ export class Controls extends EventEmitter<Handlers> {
 
     this.onFlowFiltersChanged(diff => {
       const fd = this.store.filtersDiff.tap(d => d.filters.replace(diff));
+      this.emit(Event.FiltersChanged, fd);
+    });
+
+    this.onFilterMatchModeChanged(diff => {
+      const fd = this.store.filtersDiff.tap(d => d.matchMode.replace(diff));
       this.emit(Event.FiltersChanged, fd);
     });
   }

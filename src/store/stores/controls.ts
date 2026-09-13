@@ -3,7 +3,7 @@ import { makeAutoObservable } from 'mobx';
 
 import { Flow } from '~/domain/flows';
 import { Verdict } from '~/domain/hubble';
-import { Filters, FilterEntry } from '~/domain/filtering';
+import { Filters, FilterEntry, FilterMatchMode } from '~/domain/filtering';
 
 import { Application } from '~/domain/common';
 
@@ -16,6 +16,7 @@ export class ControlStore {
   public verdicts = new Set<Verdict>();
   public httpStatus: string | null = null;
   public flowFilters: FilterEntry[] = [];
+  public filterMatchMode: FilterMatchMode = FilterMatchMode.Or;
   public showHost = false;
   public showKubeDns = false;
   public showRemoteNode = false;
@@ -38,6 +39,7 @@ export class ControlStore {
     store.verdicts = deep ? _.cloneDeep(this.verdicts) : this.verdicts;
     store.httpStatus = this.httpStatus;
     store.flowFilters = deep ? ffs.map(f => f.clone()) : ffs.slice();
+    store.filterMatchMode = this.filterMatchMode;
     store.currentApp = this.currentApp;
 
     return store;
@@ -89,6 +91,12 @@ export class ControlStore {
     this.flowFilters = ffs;
 
     return prev;
+  }
+
+  setFilterMatchMode(mode: FilterMatchMode): FilterMatchMode {
+    this.filterMatchMode = mode;
+
+    return mode;
   }
 
   setShowHost(val: boolean): boolean {

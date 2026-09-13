@@ -2,12 +2,13 @@ import React from 'react';
 import { observer } from 'mobx-react';
 
 import { Verdict } from '~/domain/hubble';
-import { FilterEntry } from '~/domain/filtering';
+import { FilterEntry, FilterMatchMode } from '~/domain/filtering';
 import { Status } from '~/domain/status';
 import { TransferState } from '~/domain/interactions';
 import { NamespaceDescriptor } from '~/domain/namespaces';
 
 import { FlowsFilterInput } from './FlowsFilterInput';
+import { FilterMatchModeDropdown } from './FilterMatchModeDropdown';
 import { VerdictFilterDropdown } from './VerdictFilterDropdown';
 import { VisualFiltersDropdown } from './VisualFiltersDropdown';
 import { NamespaceSelectorDropdown } from './NamespaceSelectorDropdown';
@@ -35,12 +36,19 @@ export interface Props {
   onShowRemoteNodeToggle?: () => void;
   showPrometheusApp: boolean;
   onShowPrometheusAppToggle: () => void;
+  filterMatchMode: FilterMatchMode;
+  onFilterMatchModeChange?: (mode: FilterMatchMode) => void;
 }
 
 export const TopBar = observer(function TopBar(props: Props) {
   const RenderedFilters = (
     <>
       <div className={css.spacer} />
+      <div className={css.spacer} />
+      <FilterMatchModeDropdown
+        mode={props.filterMatchMode}
+        onSelect={props.onFilterMatchModeChange}
+      />
       <div className={css.spacer} />
       <FlowsFilterInput filters={props.flowFilters} onChange={props.onChangeFlowFilters} />
       <div className={css.spacer} />
