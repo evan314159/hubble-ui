@@ -1,5 +1,5 @@
 import { Link } from '~/domain/service-map';
-import { FilterEntry, Kind as FilterKind } from './filter-entry';
+import { FilterEntry, Kind as FilterKind, MatchMode, matchesEntries } from './filter-entry';
 
 import { Filters } from '~/domain/filtering';
 
@@ -19,13 +19,11 @@ export const filterLink = (link: Link, filters: Filters): boolean => {
 
   if (!filters.filters?.length) return true;
 
-  for (const ff of filters.filters) {
-    const ffResult = filterLinkByEntry(link, ff);
-
-    if (ff.negative && !ffResult) return false;
-    if (!ff.negative && ffResult) return true;
-  }
-  return false;
+  return matchesEntries(
+    filters.filters,
+    ff => filterLinkByEntry(link, ff),
+    filters.matchMode ?? MatchMode.Or,
+  );
 };
 
 export const filterLinkByEntry = (l: Link, e: FilterEntry): boolean => {

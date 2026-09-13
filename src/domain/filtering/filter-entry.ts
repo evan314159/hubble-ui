@@ -19,6 +19,55 @@ export enum Direction {
   Either = 'either',
 }
 
+export enum MatchMode {
+  Or = 'or',
+  And = 'and',
+}
+
+// NOTE: Or: any entry matching is enough (the default, and the only mode
+// NOTE: prior to this option existing). And: entries sharing a direction are
+// NOTE: alternative ways to identify the same endpoint (OR'd together), but
+// NOTE: every direction group present must have a match (AND across groups)
+// NOTE: -- e.g. a from:X + to:Y pair only matches links that are both from X
+// NOTE: and to Y, not either alone.
+export function matchesEntries(
+  entries: FilterEntry[],
+  matches: (entry: FilterEntry) => boolean,
+  mode: MatchMode,
+): boolean {
+  if (entries.length === 0) return true;
+
+  if (mode === MatchMode.Or) {
+    for (const e of entries) {
+      const result = matches(e);
+      if (e.negative && !result) return false;
+      if (!e.negative && result) return true;
+    }
+    return false;
+  }
+
+  const positive = entries.filter(e => !e.negative);
+  const negative = entries.filter(e => e.negative);
+
+  for (const e of negative) {
+    if (!matches(e)) return false;
+  }
+
+  if (positive.length === 0) return true;
+
+  const groups = new Map<Direction, FilterEntry[]>();
+  positive.forEach(e => {
+    if (!groups.has(e.direction)) groups.set(e.direction, []);
+    groups.get(e.direction)!.push(e);
+  });
+
+  for (const group of groups.values()) {
+    if (!group.some(matches)) return false;
+  }
+
+  return true;
+}
+
 export interface Params {
   kind: Kind;
   direction: Direction;

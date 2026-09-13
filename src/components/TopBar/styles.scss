@@ -96,6 +96,10 @@
   &.visualFilterEnabled {
     color: #147fbc;
   }
+
+  &.textOnly {
+    justify-content: center;
+  }
 }
 
 .httpStatus {

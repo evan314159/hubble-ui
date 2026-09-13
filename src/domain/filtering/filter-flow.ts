@@ -1,5 +1,5 @@
 import { Flow } from '~/domain/flows';
-import { FilterEntry, Kind as FilterKind } from './filter-entry';
+import { FilterEntry, Kind as FilterKind, MatchMode, matchesEntries } from './filter-entry';
 
 import { Filters } from '~/domain/filtering';
 
@@ -53,13 +53,11 @@ export const filterFlow = (flow: Flow, filters: Filters): boolean => {
 
   if (!filters.filters?.length) return true;
 
-  for (const ff of filters.filters) {
-    const ffResult = filterFlowByEntry(flow, ff);
-
-    if (ff.negative && !ffResult) return false;
-    if (!ff.negative && ffResult) return true;
-  }
-  return false;
+  return matchesEntries(
+    filters.filters,
+    ff => filterFlowByEntry(flow, ff),
+    filters.matchMode ?? MatchMode.Or,
+  );
 };
 
 export const filterFlowByEntry = (flow: Flow, filter: FilterEntry): boolean => {

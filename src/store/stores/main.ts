@@ -53,6 +53,7 @@ export class Store {
       verdicts: this.controls.verdicts,
       httpStatus: this.controls.httpStatus,
       filters: this.controls.flowFilters,
+      matchMode: this.controls.filterMatchMode,
       skipHost: !this.controls.showHost,
       skipKubeDns: !this.controls.showKubeDns,
       skipRemoteNode: !this.controls.showRemoteNode,

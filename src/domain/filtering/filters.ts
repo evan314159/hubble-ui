@@ -2,7 +2,7 @@ import { Verdict } from '~/domain/flows';
 
 import { Diffable } from '~/domain/diff';
 
-import { FilterEntry } from './filter-entry';
+import { FilterEntry, MatchMode } from './filter-entry';
 import { FiltersDiff } from './filters-diff';
 
 const assignFilterProps = (to: FiltersObject, from: FiltersObject) => {
@@ -11,6 +11,7 @@ const assignFilterProps = (to: FiltersObject, from: FiltersObject) => {
     verdicts: from.verdicts,
     httpStatus: from.httpStatus,
     filters: from.filters,
+    matchMode: from.matchMode,
     skipHost: from.skipHost,
     skipKubeDns: from.skipKubeDns,
     skipRemoteNode: from.skipRemoteNode,
@@ -25,6 +26,7 @@ export interface FiltersObject {
   verdicts?: Set<Verdict>;
   httpStatus?: string | null;
   filters?: FilterEntry[];
+  matchMode?: MatchMode;
   skipHost?: boolean;
   skipKubeDns?: boolean;
   skipRemoteNode?: boolean;
@@ -38,6 +40,7 @@ export class Filters implements FiltersObject, Diffable<Filters, FiltersDiff> {
   public verdicts?: Set<Verdict>;
   public httpStatus?: string | null;
   public filters?: FilterEntry[];
+  public matchMode?: MatchMode;
   public skipHost?: boolean;
   public skipKubeDns?: boolean;
   public skipRemoteNode?: boolean;
@@ -53,6 +56,7 @@ export class Filters implements FiltersObject, Diffable<Filters, FiltersDiff> {
       verdicts: new Set(),
       httpStatus: null,
       filters: [],
+      matchMode: MatchMode.Or,
       skipHost: false,
       skipKubeDns: false,
       skipRemoteNode: false,
@@ -91,6 +95,7 @@ export class Filters implements FiltersObject, Diffable<Filters, FiltersDiff> {
     if (
       this.namespace != rhs.namespace ||
       this.httpStatus != rhs.httpStatus ||
+      this.matchMode != rhs.matchMode ||
       this.skipHost != rhs.skipHost ||
       this.skipKubeDns != rhs.skipKubeDns ||
       this.skipRemoteNode != rhs.skipRemoteNode ||

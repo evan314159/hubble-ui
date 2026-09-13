@@ -11,7 +11,7 @@ import { Verdict } from '~/domain/hubble';
 import { DataMode } from '~/domain/interactions';
 import { StateChange } from '~/domain/misc';
 import { NamespaceDescriptor } from '~/domain/namespaces';
-import { FilterEntry } from '~/domain/filtering/filter-entry';
+import { FilterEntry, MatchMode as FilterMatchMode } from '~/domain/filtering/filter-entry';
 
 import { Options } from './common';
 import { StatusCenter } from './status-center';
@@ -34,6 +34,11 @@ export class Controls {
   @mobx.computed
   public get isHostShown() {
     return this.store.controls.showHost;
+  }
+
+  @mobx.computed
+  public get filterMatchMode() {
+    return this.store.controls.filterMatchMode;
   }
 
   public namespaceChanged(ns: string | null) {
@@ -74,6 +79,10 @@ export class Controls {
   public setFlowFilters(ff: FilterEntry[] | null) {
     this.dataLayer.controls.setFlowFilters(ff);
     this.router.commit();
+  }
+
+  public setFilterMatchMode(mode: FilterMatchMode) {
+    this.dataLayer.controls.setFilterMatchMode(mode);
   }
 
   public applicationChanged(app: Application) {
