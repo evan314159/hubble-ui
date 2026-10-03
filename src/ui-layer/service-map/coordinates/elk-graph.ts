@@ -56,6 +56,49 @@ export function edgeRouteKey(senderId: string, receiverId: string): string {
   return `${senderId}->${receiverId}`;
 }
 
+// NOTE: How many drawn lines join each namespace island to a *different*
+// NOTE: island, counted at both ends (a line from island X to island Y is one
+// NOTE: more for X and one more for Y). Parallel lines between the same two
+// NOTE: pods each count. Lines inside one island, and lines to a top-level
+// NOTE: (world / host) card, are not island-to-island and don't count.
+export function islandConnectedness(
+  nodes: ElkNodeInput[],
+  edges: ElkEdgeInput[],
+): Map<string, number> {
+  const namespaceOf = new Map<string, string | null>();
+  nodes.forEach(n => namespaceOf.set(n.id, n.namespace));
+
+  const counts = new Map<string, number>();
+  const bump = (ns: string) => counts.set(ns, (counts.get(ns) ?? 0) + 1);
+
+  edges.forEach(edge => {
+    const from = namespaceOf.get(edge.sender);
+    const to = namespaceOf.get(edge.receiver);
+    if (from == null || to == null || from === to) return;
+
+    bump(from);
+    bump(to);
+  });
+
+  return counts;
+}
+
+// NOTE: Takes items ordered most-important-first and lays them out so the
+// NOTE: first sits in the middle and importance fades towards both ends,
+// NOTE: e.g. [a, b, c, d, e] -> [e, c, a, b, d]. Any subsequence of the result
+// NOTE: still rises and then falls, which matters because ELK only uses this
+// NOTE: order among the islands that share a row.
+export function centreOut<T>(mostFirst: T[]): T[] {
+  const out: T[] = [];
+
+  mostFirst.forEach((item, i) => {
+    if (i % 2 === 0 && i > 0) out.unshift(item);
+    else out.push(item);
+  });
+
+  return out;
+}
+
 export function buildElkGraph(nodes: ElkNodeInput[], edges: ElkEdgeInput[]): ElkNode {
   const byNamespace = new Map<string, ElkNode[]>();
   const top: ElkNode[] = [];
@@ -124,6 +167,17 @@ export function buildElkGraph(nodes: ElkNodeInput[], edges: ElkEdgeInput[]): Elk
     children,
   }));
 
+  // NOTE: Hint, not a rule: ELK's layered layout decides the rows from edge
+  // NOTE: direction and orders each row to minimise crossings. Handing it the
+  // NOTE: islands most-connected-in-the-middle (see islandConnectedness) and
+  // NOTE: asking it to keep input order (considerModelOrder below) only breaks
+  // NOTE: ties, so a layout without extra crossings leans towards that order.
+  const connectedness = islandConnectedness(nodes, edges);
+  const connectednessOf = (g: ElkNode) => connectedness.get(g.id.replace(/^ns:/, '')) ?? 0;
+  const orderedGroups = centreOut(
+    [...groups].sort((a, b) => connectednessOf(b) - connectednessOf(a) || a.id.localeCompare(b.id)),
+  );
+
   // NOTE: Map/index.tsx draws each island's backplate `sizes
   // NOTE: .namespaceBackplatePadding` (M) beyond the ELK-computed group box,
   // NOTE: whose own edge already sits GROUP_PAD_SIDE (G) beyond its pods --
@@ -166,6 +220,9 @@ export function buildElkGraph(nodes: ElkNodeInput[], edges: ElkEdgeInput[]): Elk
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
       'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
       'elk.layered.cycleBreaking.strategy': 'GREEDY',
+      // NOTE: Keep the order of `children` below as a tie-breaker (nodes only:
+      // NOTE: edge order is left to ELK) -- see orderedGroups above.
+      'elk.layered.considerModelOrder.strategy': 'PREFER_NODES',
       'elk.layered.spacing.nodeNodeBetweenLayers': topLevelVerticalSpacing,
       'elk.spacing.nodeNode': topLevelSpacing,
       // NOTE: A cross-namespace edge (or one to/from a top-level world/host
@@ -187,7 +244,7 @@ export function buildElkGraph(nodes: ElkNodeInput[], edges: ElkEdgeInput[]): Elk
       // NOTE: belongs to the port it's arriving at.
       'elk.edgeLabels.placement': 'HEAD',
     },
-    children: [...top, ...groups],
+    children: [...top, ...orderedGroups],
     edges: edges.map((edge, i) => ({
       id: `e${i}`,
       sources: [edge.sender],
