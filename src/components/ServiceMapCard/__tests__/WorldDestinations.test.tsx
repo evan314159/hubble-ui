@@ -23,8 +23,10 @@ describe('WorldDestinations', () => {
 
     expect(markers(container).length).toBe(1);
 
-    const row = markers(container)[0].parentElement!;
+    const clock = markers(container)[0];
+    const row = clock.parentElement!;
     expect(row.textContent).toBe('old.example.com');
+    expect(clock.className).toContain('worldDestinationClock');
   });
 
   test('no clocks without expired rows', () => {

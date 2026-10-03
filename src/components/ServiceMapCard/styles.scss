@@ -114,3 +114,12 @@
   align-items: center;
   font-size: 20px;
 }
+
+// Blueprint's icon is an inline-block aligned to the text-bottom, so left in
+// the marker's own line box it sits at the bottom of a line-height-tall box
+// and centring that box leaves the clock low, below the baseline. As a flex
+// container the marker makes the icon a flex item of exactly its own height,
+// which .worldDestination then centres.
+.worldDestinationClock {
+  display: flex;
+}

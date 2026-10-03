@@ -32,7 +32,12 @@ export const WorldDestinations = observer(function WorldDestinations(props: Prop
             <div className={accessPointCss.port}>
               <span className={css.worldDestination}>
                 {formatWorldDestination(d)}
-                {d.expired && <ExpiredDnsMarker size={EXPIRED_MARKER_SIZE} />}
+                {d.expired && (
+                  <ExpiredDnsMarker
+                    size={EXPIRED_MARKER_SIZE}
+                    className={css.worldDestinationClock}
+                  />
+                )}
               </span>
             </div>
           </div>
