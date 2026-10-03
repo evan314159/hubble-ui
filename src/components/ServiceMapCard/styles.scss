@@ -103,10 +103,14 @@
   margin-top: 0;
 }
 
-// Centres the expired-DNS clock on the destination text's line box. Blueprint
-// aligns its icons to the text-bottom, and `vertical-align: middle` only
-// reaches half the x-height, so either leaves the clock low.
+// A world destination is a host name or an address, and a full IPv6 address is
+// 39 characters: at the 24px of an access point's port it is wider than the
+// card, at 20px it fits with room to spare.
+// Also centres the expired-DNS clock on the text's line box. Blueprint aligns
+// its icons to the text-bottom, and `vertical-align: middle` only reaches half
+// the x-height, so either leaves the clock low.
 .worldDestination {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  font-size: 20px;
 }
