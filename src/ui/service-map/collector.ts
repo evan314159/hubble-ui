@@ -115,7 +115,18 @@ export class RefsCollector extends EventEmitter<Handlers> {
       const cardId = this.elemToCardId.get(entry.target);
       if (cardId == null) return;
 
-      const bbox = XYWH.fromDOMRect(entry.target.getBoundingClientRect()).applyDOMMatrix(m);
+      const mapped = XYWH.fromDOMRect(entry.target.getBoundingClientRect()).applyDOMMatrix(m);
+
+      // NOTE: Position comes from the on-screen rectangle mapped back through
+      // NOTE: the root <g>'s inverse CTM, but the size must not: the card is
+      // NOTE: laid out in the map's own units already, and for HTML inside the
+      // NOTE: SVG's foreignObject the rectangle (and with it the CTM mapping)
+      // NOTE: is not the same on every browser. Safari reports a rectangle that
+      // NOTE: maps to about 65% of the card's real height, so its box was drawn
+      // NOTE: too short for its content, worse the further the map was zoomed.
+      // NOTE: The layout size is the same in both and has no transform in it.
+      const { w, h } = this.layoutSize(entry, mapped);
+      const bbox = XYWH.fromArgs(mapped.x, mapped.y, w, h);
       cardCoords.push({ id: cardId, bbox });
 
       if (
@@ -130,6 +141,23 @@ export class RefsCollector extends EventEmitter<Handlers> {
     if (cardCoords.length === 0) return;
 
     this.emit(Event.CoordsUpdated, { cards: cardCoords });
+  }
+
+  // NOTE: The element's own border-box size, in its own (untransformed)
+  // NOTE: layout units. The observer's borderBoxSize is fractional and is in
+  // NOTE: every current browser; offsetWidth/offsetHeight (rounded) cover an
+  // NOTE: older one. `fallback` is only for a non-HTML target, which a card
+  // NOTE: never is.
+  private layoutSize(entry: ResizeObserverEntry, fallback: XYWH): { w: number; h: number } {
+    const box = entry.borderBoxSize?.[0];
+    if (box != null) return { w: box.inlineSize, h: box.blockSize };
+
+    const target = entry.target;
+    if (target instanceof HTMLElement) {
+      return { w: target.offsetWidth, h: target.offsetHeight };
+    }
+
+    return { w: fallback.w, h: fallback.h };
   }
 
   private ensureRootSVGGElement(elem: HTMLElement): SVGGElement | null {
