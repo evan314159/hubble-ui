@@ -4,9 +4,13 @@ import { observer } from 'mobx-react';
 import * as lang from '~/utils/lang';
 
 import accessPointCss from '~/components/AccessPoint/styles.scss';
+import { ExpiredDnsMarker } from '~/components/FlowsTable/ExpiredDnsMarker';
 
 import { WorldDestination, MAX_DESTINATIONS, formatWorldDestination } from './world-destinations';
 import css from './styles.scss';
+
+// The destination text is 24px bold, so the 11px default would be a speck.
+const EXPIRED_MARKER_SIZE = 18;
 
 export interface Props {
   destinations: WorldDestination[];
@@ -24,7 +28,17 @@ export const WorldDestinations = observer(function WorldDestinations(props: Prop
       {shown.map(d => (
         <div key={d.key} className={accessPointCss.accessPoint}>
           <div className={accessPointCss.data}>
-            <div className={accessPointCss.port}>{formatWorldDestination(d)}</div>
+            <div className={accessPointCss.port}>
+              <span className={css.worldDestination}>
+                {formatWorldDestination(d)}
+                {d.expired && (
+                  <ExpiredDnsMarker
+                    size={EXPIRED_MARKER_SIZE}
+                    className={css.worldDestinationClock}
+                  />
+                )}
+              </span>
+            </div>
           </div>
         </div>
       ))}

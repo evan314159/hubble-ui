@@ -4,6 +4,9 @@ export interface WorldDestination {
   key: string;
   label: string;
   count: number;
+  // True when every flow behind this row got its name from an expired DNS
+  // record, so the name may be out of date.
+  expired: boolean;
 }
 
 export type WorldCardDirection = 'egress' | 'ingress' | 'both';
@@ -12,8 +15,9 @@ const MAX_DESTINATIONS = 10;
 
 // NOTE: World cards aggregate every real-world IP a given sender talks to
 // NOTE: into one node -- this recovers per-destination detail (DNS name, else
-// NOTE: IP) straight from the recent flow buffer, ranked by how many flows
-// NOTE: hit each one. Only the host is shown (no port/protocol) -- that
+// NOTE: expired DNS name, else IP) straight from the recent flow buffer, ranked
+// NOTE: by how many flows hit each one. An expired name only stands in for an
+// NOTE: IP, never for a current name. Only the host is shown (no port/protocol) -- that
 // NOTE: distinction lives on the connector arrow instead, and this space is
 // NOTE: reserved for addresses only.
 // NOTE: Ingress traffic (world sending into a namespace) isn't broken down at
@@ -41,14 +45,18 @@ export function topWorldDestinations(
     if (flow.destinationIdentity == null || !identities.has(flow.destinationIdentity)) return;
     if (localNamespace != null && flow.sourceNamespace !== localNamespace) return;
 
-    const label = flow.destinationDns ?? flow.destinationIp;
+    const expiredName =
+      flow.destinationDns == null ? flow.destinationNamesExpiredList[0] : undefined;
+    const label = flow.destinationDns ?? expiredName ?? flow.destinationIp;
     if (label == null) return;
 
+    const expired = expiredName != null;
     const existing = byKey.get(label);
     if (existing != null) {
       existing.count += 1;
+      existing.expired = existing.expired && expired;
     } else {
-      byKey.set(label, { key: label, label, count: 1 });
+      byKey.set(label, { key: label, label, count: 1, expired });
     }
   });
 

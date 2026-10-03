@@ -102,3 +102,20 @@
 .accessPoints + .labels {
   margin-top: 0;
 }
+
+// Centres the expired-DNS clock on the destination text's line box. Blueprint
+// aligns its icons to the text-bottom, and `vertical-align: middle` only
+// reaches half the x-height, so either leaves the clock low.
+.worldDestination {
+  display: inline-flex;
+  align-items: center;
+}
+
+// Blueprint's icon is an inline-block aligned to the text-bottom, so left in
+// the marker's own line box it sits at the bottom of a line-height-tall box
+// and centring that box leaves the clock low, below the baseline. As a flex
+// container the marker makes the icon a flex item of exactly its own height,
+// which .worldDestination then centres.
+.worldDestinationClock {
+  display: flex;
+}

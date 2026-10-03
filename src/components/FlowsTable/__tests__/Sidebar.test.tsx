@@ -144,7 +144,7 @@ runTest(10, data.flows.hubbleOne, {
 const withDestinationNames = (names: string[], expired: string[]): HubbleFlow => ({
   ...data.flows.hubbleOne,
   destinationNamesList: names,
-  destinationNamesZombieList: expired,
+  destinationNamesExpiredList: expired,
 });
 
 // `Destination DNS` lists the current name followed by every expired name

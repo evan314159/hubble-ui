@@ -426,7 +426,7 @@ export const FlowsTableSidebar = memo<Props>(function FlowsTableSidebar(props) {
         </section>
       )}
       {flow.hasDestination &&
-        (flow.destinationDns || flow.destinationNamesZombieList.length > 0) && (
+        (flow.destinationDns || flow.destinationNamesExpiredList.length > 0) && (
           <section className={css.block}>
             <span className={css.title}>Destination DNS</span>
             <div className={css.body}>
@@ -437,7 +437,7 @@ export const FlowsTableSidebar = memo<Props>(function FlowsTableSidebar(props) {
                   onClick={onDnsClick}
                 />
               )}
-              {flow.destinationNamesZombieList.map(name => (
+              {flow.destinationNamesExpiredList.map(name => (
                 <div key={name}>
                   {name}
                   <ExpiredDnsMarker />

@@ -55,7 +55,7 @@ export const Cell = observer(function FlowsTableCell(props: CellProps) {
     case Column.DstService: {
       const expiredDns = props.flow.destinationDns
         ? null
-        : props.flow.destinationNamesZombieList[0];
+        : props.flow.destinationNamesExpiredList[0];
 
       if (expiredDns) {
         return (

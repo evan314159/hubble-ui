@@ -40,9 +40,9 @@ export const icmpv4Flow: HubbleFlow = {
     podName: `receiver-d4e5f6`,
   },
   sourceNamesList: [],
-  sourceNamesZombieList: [],
+  sourceNamesExpiredList: [],
   destinationNamesList: [],
-  destinationNamesZombieList: [],
+  destinationNamesExpiredList: [],
   nodeName: 'TestNode',
   reply: false,
   summary: '',
@@ -91,9 +91,9 @@ export const hubbleOne: HubbleFlow = {
     podName: `receiver-d4e5f6`,
   },
   sourceNamesList: [],
-  sourceNamesZombieList: [],
+  sourceNamesExpiredList: [],
   destinationNamesList: [],
-  destinationNamesZombieList: [],
+  destinationNamesExpiredList: [],
   nodeName: 'TestNode',
   reply: false,
   summary: '',
@@ -182,21 +182,21 @@ export const hubbleWithHttp200: HubbleFlow = {
 export const flowFromGoogle: HubbleFlow = {
   ...hubbleOne,
   sourceNamesList: ['www.google.com'],
-  sourceNamesZombieList: [],
+  sourceNamesExpiredList: [],
 };
 
 export const flowToGoogle: HubbleFlow = {
   ...hubbleOne,
   destinationNamesList: ['www.google.com'],
-  destinationNamesZombieList: [],
+  destinationNamesExpiredList: [],
 };
 
 export const flowFromToGoogle: HubbleFlow = {
   ...hubbleOne,
   sourceNamesList: ['www.google.com'],
-  sourceNamesZombieList: [],
+  sourceNamesExpiredList: [],
   destinationNamesList: ['www.google.com'],
-  destinationNamesZombieList: [],
+  destinationNamesExpiredList: [],
 };
 
 export const differentIps: HubbleFlow = {

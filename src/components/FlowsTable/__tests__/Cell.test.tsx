@@ -21,7 +21,7 @@ describe('FlowsTable Cell: destination service', () => {
   test('a current name is shown without a marker', () => {
     const container = renderDstService({
       destinationNamesList: ['current.example.com'],
-      destinationNamesZombieList: ['old.example.com'],
+      destinationNamesExpiredList: ['old.example.com'],
     });
 
     expect(container.textContent?.trim()).toBe('current.example.com');
@@ -31,7 +31,7 @@ describe('FlowsTable Cell: destination service', () => {
   test('an expired name is shown alone, with a marker and no subtitle', () => {
     const container = renderDstService({
       destinationNamesList: [],
-      destinationNamesZombieList: ['old.example.com', 'older.example.com'],
+      destinationNamesExpiredList: ['old.example.com', 'older.example.com'],
     });
 
     expect(container.textContent).toBe('old.example.com');
@@ -42,7 +42,7 @@ describe('FlowsTable Cell: destination service', () => {
   test('without any name the identity is shown without a marker', () => {
     const container = renderDstService({
       destinationNamesList: [],
-      destinationNamesZombieList: [],
+      destinationNamesExpiredList: [],
     });
 
     expect(markers(container).length).toBe(0);
