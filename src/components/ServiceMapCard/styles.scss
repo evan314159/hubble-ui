@@ -102,3 +102,10 @@
 .accessPoints + .labels {
   margin-top: 0;
 }
+
+// Centres the expired-DNS clock on the destination text. Blueprint aligns its
+// icons to the text-bottom, which leaves the clock hanging below the line.
+.expiredDns {
+  display: inline-flex;
+  vertical-align: middle;
+}

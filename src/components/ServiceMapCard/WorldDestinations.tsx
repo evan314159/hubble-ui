@@ -9,6 +9,9 @@ import { ExpiredDnsMarker } from '~/components/FlowsTable/ExpiredDnsMarker';
 import { WorldDestination, MAX_DESTINATIONS, formatWorldDestination } from './world-destinations';
 import css from './styles.scss';
 
+// The destination text is 24px bold, so the 11px default would be a speck.
+const EXPIRED_MARKER_SIZE = 18;
+
 export interface Props {
   destinations: WorldDestination[];
 }
@@ -27,7 +30,9 @@ export const WorldDestinations = observer(function WorldDestinations(props: Prop
           <div className={accessPointCss.data}>
             <div className={accessPointCss.port}>
               {formatWorldDestination(d)}
-              {d.expired && <ExpiredDnsMarker />}
+              {d.expired && (
+                <ExpiredDnsMarker size={EXPIRED_MARKER_SIZE} className={css.expiredDns} />
+              )}
             </div>
           </div>
         </div>
