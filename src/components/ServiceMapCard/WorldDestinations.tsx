@@ -4,6 +4,7 @@ import { observer } from 'mobx-react';
 import * as lang from '~/utils/lang';
 
 import accessPointCss from '~/components/AccessPoint/styles.scss';
+import { ExpiredDnsMarker } from '~/components/FlowsTable/ExpiredDnsMarker';
 
 import { WorldDestination, MAX_DESTINATIONS, formatWorldDestination } from './world-destinations';
 import css from './styles.scss';
@@ -24,7 +25,10 @@ export const WorldDestinations = observer(function WorldDestinations(props: Prop
       {shown.map(d => (
         <div key={d.key} className={accessPointCss.accessPoint}>
           <div className={accessPointCss.data}>
-            <div className={accessPointCss.port}>{formatWorldDestination(d)}</div>
+            <div className={accessPointCss.port}>
+              {formatWorldDestination(d)}
+              {d.expired && <ExpiredDnsMarker />}
+            </div>
           </div>
         </div>
       ))}
