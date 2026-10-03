@@ -29,10 +29,10 @@ export const WorldDestinations = observer(function WorldDestinations(props: Prop
         <div key={d.key} className={accessPointCss.accessPoint}>
           <div className={accessPointCss.data}>
             <div className={accessPointCss.port}>
-              {formatWorldDestination(d)}
-              {d.expired && (
-                <ExpiredDnsMarker size={EXPIRED_MARKER_SIZE} className={css.expiredDns} />
-              )}
+              <span className={css.worldDestination}>
+                {formatWorldDestination(d)}
+                {d.expired && <ExpiredDnsMarker size={EXPIRED_MARKER_SIZE} />}
+              </span>
             </div>
           </div>
         </div>

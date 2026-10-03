@@ -103,9 +103,10 @@
   margin-top: 0;
 }
 
-// Centres the expired-DNS clock on the destination text. Blueprint aligns its
-// icons to the text-bottom, which leaves the clock hanging below the line.
-.expiredDns {
+// Centres the expired-DNS clock on the destination text's line box. Blueprint
+// aligns its icons to the text-bottom, and `vertical-align: middle` only
+// reaches half the x-height, so either leaves the clock low.
+.worldDestination {
   display: inline-flex;
-  vertical-align: middle;
+  align-items: center;
 }
